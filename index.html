@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>待辦事項</title>
+<style>
+  :root{
+    --bg: #F2F2F7;
+    --card: #FFFFFF;
+    --blue: #007AFF;
+    --red: #FF3B30;
+    --green: #34C759;
+    --orange: #FF9500;
+    --purple: #AF52DE;
+    --teal: #30B0C7;
+    --pink: #FF2D55;
+    --label: #1C1C1E;
+    --label2: #8E8E93;
+    --sep: rgba(60,60,67,0.15);
+    --fill: #EFEFF2;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    color: var(--label);
+    display: flex; justify-content: center;
+  }
+  .screen { width: 100%; max-width: 420px; padding: 20px 16px 50px; }
+
+  .title-block { padding: 4px 4px 14px; }
+  .title-block h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.4px; margin: 0; }
+  .title-block .date { font-size: 13px; color: var(--label2); margin-top: 2px; }
+
+  .segmented {
+    display: flex; background: var(--fill); border-radius: 9px; padding: 2px; margin-bottom: 14px;
+  }
+  .segmented button {
+    flex: 1; border: none; background: transparent; padding: 6px 0; font-size: 13px;
+    font-weight: 600; color: var(--label2); border-radius: 7px; cursor: pointer;
+    font-family: inherit; transition: background 0.15s, color 0.15s;
+  }
+  .segmented button.active { background: var(--card); color: var(--label); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+  .card { background: var(--card); border-radius: 14px; overflow: hidden; margin-bottom: 16px; }
+
+  .field-group { display: flex; flex-direction: column; }
+  .field-row { display: flex; align-items: center; padding: 8px 12px; gap: 10px; border-bottom: 0.5px solid var(--sep); }
+  .field-row:last-child { border-bottom: none; }
+  .field-row input[type="text"], .field-row input[type="datetime-local"] {
+    border: none; outline: none; font-family: inherit; font-size: 14px; color: var(--label);
+    background: transparent; flex: 1; padding: 0;
+  }
+  .field-row input::placeholder { color: #C7C7CC; }
+  .field-emoji { width: 28px; text-align: center; font-size: 17px; flex: none !important; }
+  .field-label { font-size: 14px; color: var(--label); width: 60px; flex-shrink: 0; }
+  .field-row input[type="datetime-local"] { text-align: right; color: var(--label2); font-size: 13px; }
+  .field-row select {
+    border: none; outline: none; font-family: inherit; font-size: 14px; color: var(--label2);
+    background: transparent; flex: 1; text-align: right; -webkit-appearance: none; appearance: none; cursor: pointer;
+  }
+  .edit-row select {
+    background: var(--fill); border: none; border-radius: 8px; font-family: inherit;
+    font-size: 13px; color: var(--label); padding: 8px 10px; outline: none; -webkit-appearance: none; appearance: none; cursor: pointer;
+  }
+  .tag.repeat-tag { display: flex; align-items: center; gap: 3px; background: rgba(0,122,255,0.12); color: var(--blue); }
+  .tag.repeat-tag svg { width: 11px; height: 11px; }
+
+  .more-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%;
+    background: transparent; border: none; border-bottom: 0.5px solid var(--sep);
+    font-family: inherit; font-size: 12px; color: var(--label2); padding: 7px 0; cursor: pointer;
+  }
+  .more-toggle svg { width: 11px; height: 11px; transition: transform 0.15s; }
+  .more-toggle.open svg { transform: rotate(180deg); }
+  .more-options { display: none; }
+  .more-options.open { display: block; }
+
+  .emoji-picks { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; border-bottom: 0.5px solid var(--sep); }
+  .emoji-picks button {
+    flex: none; background: var(--fill); border: none; font-size: 15px; width: 28px; height: 28px;
+    border-radius: 8px; cursor: grab; touch-action: none;
+  }
+  .emoji-picks button.dragging { opacity: 0.35; }
+
+  .toggle-row { display: flex; gap: 8px; padding: 8px 12px; }
+  .toggle-pill {
+    display: flex; align-items: center; gap: 5px; border: none; font-family: inherit;
+    font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 16px; cursor: pointer;
+    background: var(--fill); color: var(--label2);
+  }
+  .toggle-pill.pin.active { background: rgba(255,149,0,0.15); color: var(--orange); }
+  .toggle-pill.imp.active { background: rgba(255,59,48,0.15); color: var(--red); }
+
+  .add-btn {
+    display: block; width: calc(100% - 24px); margin: 10px 12px 12px; background: var(--blue);
+    color: #fff; border: none; font-family: inherit; font-size: 15px; font-weight: 600;
+    padding: 11px 0; border-radius: 11px; cursor: pointer;
+  }
+  .add-btn:active { opacity: 0.75; }
+
+  .group { margin-bottom: 14px; }
+  .group.dragging { opacity: 0.45; }
+  .group-drag-handle {
+    flex-shrink: 0; width: 18px; height: 20px; display: flex; align-items: center; justify-content: center;
+    color: #C7C7CC; cursor: grab; touch-action: none; margin-left: -4px;
+  }
+  .group-drag-handle svg { width: 14px; height: 14px; }
+  .group-header {
+    display: flex; align-items: center; gap: 8px; padding: 4px 6px 8px; cursor: pointer; user-select: none;
+  }
+  .group-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .group-name { font-size: 13px; font-weight: 600; color: var(--label2); letter-spacing: 0.3px; flex: 1; }
+  .group-count { font-size: 12px; color: var(--label2); }
+  .group-chevron { width: 14px; height: 14px; color: var(--label2); transition: transform 0.15s; flex-shrink: 0; }
+  .group-chevron.collapsed { transform: rotate(-90deg); }
+  .group-list { list-style: none; margin: 0; padding: 0; background: var(--card); border-radius: 14px; overflow: hidden; }
+  .group-list.collapsed { display: none; }
+
+  li.item {
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px;
+    border-bottom: 0.5px solid var(--sep); position: relative; background: var(--card);
+  }
+  li.item:last-child { border-bottom: none; }
+  li.item.important { background: #FFF6DB; }
+  li.item.dragging { opacity: 0.45; }
+
+  .drag-handle {
+    flex-shrink: 0; width: 20px; height: 24px; display: flex; align-items: center; justify-content: center;
+    color: #C7C7CC; cursor: grab; touch-action: none; margin-left: -6px;
+  }
+  .drag-handle svg { width: 15px; height: 15px; }
+  .drag-handle.disabled { opacity: 0.25; cursor: default; }
+
+  .pin-badge {
+    position: absolute; top: 10px; right: 14px; font-size: 10px; font-weight: 700;
+    color: var(--orange); background: rgba(255,149,0,0.15); padding: 2px 7px; border-radius: 8px;
+  }
+
+  .check {
+    width: 24px; height: 24px; border-radius: 50%; border: 2px solid #C7C7CC;
+    flex-shrink: 0; margin-top: 1px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; background: var(--card);
+  }
+  .check.done { background: var(--blue); border-color: var(--blue); }
+  .check.done svg { width: 13px; height: 13px; }
+
+  .item-emoji { font-size: 19px; line-height: 1.3; flex-shrink: 0; }
+
+  .item-body { flex: 1; min-width: 0; padding-right: 58px; cursor: pointer; }
+  .item-text { font-size: 16px; line-height: 1.35; word-break: break-word; cursor: pointer; }
+  .item-text.done { text-decoration: line-through; color: var(--label2); }
+  li.item.important .item-text { font-weight: 600; }
+
+  .meta-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; align-items: center; }
+  .tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .due-text { font-size: 12px; color: var(--label2); }
+  .due-text.overdue { color: var(--red); font-weight: 600; }
+
+  .item-actions {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: row; gap: 14px; align-items: center;
+  }
+  .item-actions button { background: none; border: none; padding: 0; cursor: pointer; color: #C7C7CC; display: flex; }
+  .item-actions button svg { width: 18px; height: 18px; }
+  .item-actions button.pin-icon-btn svg { transform: translateY(2px); }
+  .item-actions button.active-pin { color: var(--orange); }
+  .item-actions button.active-imp { color: var(--red); }
+
+  .edit-panel { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .edit-row { display: flex; gap: 8px; align-items: center; }
+  .edit-row input[type="text"] {
+    background: var(--fill); border: none; border-radius: 8px; font-family: inherit;
+    font-size: 14px; color: var(--label); padding: 8px 10px; outline: none; flex: 1;
+  }
+  .edit-row input.edit-emoji { width: 44px; text-align: center; flex: none; }
+  .edit-row input.edit-cat { width: 90px; flex: none; }
+  .edit-row input[type="datetime-local"] {
+    background: var(--fill); border: none; border-radius: 8px; font-family: inherit;
+    font-size: 13px; color: var(--label); padding: 8px 10px; outline: none;
+  }
+  .edit-actions { display: flex; gap: 8px; }
+  .edit-actions button {
+    font-family: inherit; font-size: 14px; font-weight: 600; padding: 8px 0; flex: 1;
+    border-radius: 9px; cursor: pointer; border: none;
+  }
+  .edit-actions .save-btn { background: var(--blue); color: #fff; }
+  .edit-actions .cancel-btn { background: var(--fill); color: var(--label2); }
+
+  .empty-state { text-align: center; padding: 36px 20px; color: var(--label2); font-size: 14px; background: var(--card); border-radius: 14px; }
+
+  .footer-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; font-size: 13px; color: var(--label2); }
+  .footer-row button { background: none; border: none; color: var(--red); font-family: inherit; font-size: 13px; cursor: pointer; padding: 0; }
+
+  .reminder-note { font-size: 11px; color: var(--label2); text-align: center; margin-top: 4px; padding: 0 20px; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none;
+    align-items: center; justify-content: center; z-index: 999; padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    width: min(280px, 100%); background: rgba(250,250,252,0.94); backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px); border-radius: 14px; overflow: hidden; text-align: center;
+    animation: pop-in 0.18s ease-out; position: relative;
+  }
+  @keyframes pop-in { from { transform: scale(1.08); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-close {
+    position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%;
+    background: rgba(0,0,0,0.07); border: none; color: var(--label2); font-size: 13px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  }
+  .modal-close:active { background: rgba(0,0,0,0.14); }
+  .modal-label { font-size: 11px; color: var(--label2); text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 16px 0; }
+  .modal-name { font-size: 17px; font-weight: 600; margin: 6px 16px 2px; line-height: 1.35; }
+  .modal-meta { font-size: 13px; color: var(--label2); margin: 0 16px 16px; }
+  .modal-btn {
+    width: 100%; border: none; background: transparent; border-top: 0.5px solid var(--sep);
+    padding: 12px 0; font-family: inherit; font-size: 17px; color: var(--blue); cursor: pointer;
+  }
+  .modal-btn:active { background: rgba(0,0,0,0.05); }
+  .modal-btn.primary { font-weight: 600; color: var(--green); }
+  .modal-snooze-row { display: flex; border-top: 0.5px solid var(--sep); }
+  .modal-snooze-btn {
+    flex: 1; border: none; background: transparent; border-right: 0.5px solid var(--sep);
+    padding: 12px 0; font-family: inherit; font-size: 12px; color: var(--blue); cursor: pointer;
+  }
+  .modal-snooze-btn:last-child { border-right: none; }
+  .modal-snooze-btn:active { background: rgba(0,0,0,0.05); }
+</style>
+</head>
+<body>
+
+<div class="screen">
+  <div class="title-block">
+    <h1>待辦事項</h1>
+    <div class="date" id="date-line"></div>
+  </div>
+
+  <div class="segmented">
+    <button class="filter-btn active" data-filter="all">全部</button>
+    <button class="filter-btn" data-filter="active">進行中</button>
+    <button class="filter-btn" data-filter="done">已完成</button>
+  </div>
+
+  <div class="card">
+    <div class="field-group">
+      <div class="field-row">
+        <input type="text" id="new-item" placeholder="新增待辦事項" style="flex:1;">
+      </div>
+      <div class="field-row">
+        <span class="field-label">分類</span>
+        <input type="text" id="new-cat" placeholder="例如：工作" maxlength="12" list="cat-list">
+        <datalist id="cat-list"></datalist>
+      </div>
+      <div class="field-row">
+        <span class="field-label">圖案</span>
+        <input type="text" id="new-emoji" class="field-emoji" placeholder="😀" maxlength="4">
+      </div>
+      <div class="emoji-picks" id="emoji-picks"></div>
+    </div>
+    <button type="button" class="more-toggle" id="more-toggle">
+      <span>更多選項</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="more-options" id="more-options">
+      <div class="field-row">
+        <span class="field-label">到期時間</span>
+        <input type="datetime-local" id="new-due">
+      </div>
+      <div class="field-row">
+        <span class="field-label">重複</span>
+        <select id="new-repeat">
+          <option value="none">不重複</option>
+          <option value="daily">每天</option>
+          <option value="weekly">每週</option>
+          <option value="monthly">每月</option>
+        </select>
+      </div>
+      <div class="toggle-row">
+        <button type="button" class="toggle-pill pin" id="new-pin">📌 置頂</button>
+        <button type="button" class="toggle-pill imp" id="new-imp">⭐ 重要</button>
+      </div>
+    </div>
+    <button class="add-btn" id="add-btn">加入待辦事項</button>
+  </div>
+
+  <div id="groups"></div>
+  <div id="empty" class="empty-state" style="display:none;">目前沒有待辦事項</div>
+
+  <div class="footer-row">
+    <span id="remaining-count">剩餘 0 項</span>
+    <button id="clear-done">清除已完成</button>
+  </div>
+  <div class="reminder-note">到期提醒會在此頁面開啟時彈出，需手動關閉</div>
+  <div class="save-indicator" style="text-align:center; font-size:11px; color:var(--label2); margin-top:8px;" id="save-indicator"></div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <button class="modal-close" id="modal-close" aria-label="關閉">✕</button>
+    <div class="modal-label">到期提醒</div>
+    <div class="modal-name" id="modal-name"></div>
+    <div class="modal-meta" id="modal-meta"></div>
+    <button class="modal-btn primary" id="modal-done">已完成</button>
+    <div class="modal-snooze-row">
+      <button class="modal-snooze-btn" data-min="10">+10 分</button>
+      <button class="modal-snooze-btn" data-min="30">+30 分</button>
+      <button class="modal-snooze-btn" data-min="60">+60 分</button>
+      <button class="modal-snooze-btn" data-min="180">+180 分</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let todos = [];
+let filter = 'all';
+let newPinned = false;
+let newImportant = false;
+let editingId = null;
+let saveTimeout = null;
+let reminderQueue = [];
+let modalShowing = false;
+let currentReminder = null;
+let collapsedGroups = new Set();
+
+let QUICK_EMOJI = ['⭐','🔥','✅','📌','🎯','💡','📅','🛒','🏃','💪','📚','💰','🏠','🎉','📦'];
+const CAT_COLORS = ['#007AFF','#34C759','#FF9500','#FF3B30','#AF52DE','#30B0C7','#FF2D55'];
+
+function colorFor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % CAT_COLORS.length;
+  return CAT_COLORS[Math.abs(h) % CAT_COLORS.length];
+}
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function checkSvg() {
+  return '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 12L13 4" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function pinSvg() {
+  return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5c0 2.4 1.6 4.2 2.9 5.3L7 17h10l-2.9-4.7C15.4 11.2 17 9.4 17 7a5 5 0 00-5-5zm0 15v5"/></svg>';
+}
+function starSvg() {
+  return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.9L22 9.7l-5.5 4.8L18 22l-6-3.9L6 22l1.5-7.5L2 9.7l7.1-.8z"/></svg>';
+}
+function editSvg() {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg>';
+}
+function trashSvg() {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function repeatSvg() {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 014-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>';
+}
+function gripSvg() {
+  return '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="6" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg>';
+}
+function chevronSvg() {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+}
+const REPEAT_LABELS = { daily: '每天', weekly: '每週', monthly: '每月' };
+
+const groupsEl = document.getElementById('groups');
+const emptyEl = document.getElementById('empty');
+const remainingEl = document.getElementById('remaining-count');
+const dateLine = document.getElementById('date-line');
+const saveIndicator = document.getElementById('save-indicator');
+const catListEl = document.getElementById('cat-list');
+const emojiPicksEl = document.getElementById('emoji-picks');
+const modalOverlay = document.getElementById('modal-overlay');
+const modalName = document.getElementById('modal-name');
+const modalMeta = document.getElementById('modal-meta');
+const modalDoneBtn = document.getElementById('modal-done');
+const modalCloseBtn = document.getElementById('modal-close');
+const moreToggle = document.getElementById('more-toggle');
+const moreOptions = document.getElementById('more-options');
+
+moreToggle.addEventListener('click', () => {
+  const open = moreOptions.classList.toggle('open');
+  moreToggle.classList.toggle('open', open);
+  moreToggle.querySelector('span').textContent = open ? '收起選項' : '更多選項';
+});
+
+function renderEmojiPicks() {
+  emojiPicksEl.innerHTML = QUICK_EMOJI.map(e => `<button type="button" data-e="${e}">${e}</button>`).join('');
+  emojiPicksEl.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('pointerdown', onEmojiPointerDown);
+  });
+}
+let emojiDragEl = null;
+let emojiDragMoved = false;
+let emojiDragStartX = 0;
+function onEmojiPointerDown(e) {
+  emojiDragEl = e.currentTarget;
+  emojiDragMoved = false;
+  emojiDragStartX = e.clientX;
+  document.addEventListener('pointermove', onEmojiDragMove);
+  document.addEventListener('pointerup', onEmojiDragEnd);
+}
+function onEmojiDragMove(e) {
+  if (!emojiDragEl) return;
+  if (!emojiDragMoved && Math.abs(e.clientX - emojiDragStartX) > 6) {
+    emojiDragMoved = true;
+    emojiDragEl.classList.add('dragging');
+  }
+  if (!emojiDragMoved) return;
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  const overBtn = target ? target.closest('#emoji-picks button') : null;
+  if (!overBtn || overBtn === emojiDragEl) return;
+  const rect = overBtn.getBoundingClientRect();
+  const before = e.clientX < rect.left + rect.width / 2;
+  if (before) emojiPicksEl.insertBefore(emojiDragEl, overBtn);
+  else emojiPicksEl.insertBefore(emojiDragEl, overBtn.nextSibling);
+}
+function onEmojiDragEnd() {
+  document.removeEventListener('pointermove', onEmojiDragMove);
+  document.removeEventListener('pointerup', onEmojiDragEnd);
+  if (!emojiDragEl) return;
+  if (!emojiDragMoved) {
+    document.getElementById('new-emoji').value = emojiDragEl.dataset.e;
+  } else {
+    emojiDragEl.classList.remove('dragging');
+    QUICK_EMOJI = [...emojiPicksEl.querySelectorAll('button')].map(b => b.dataset.e);
+    try { localStorage.setItem('todo-emoji-order', JSON.stringify(QUICK_EMOJI)); } catch (e) {}
+  }
+  emojiDragEl = null;
+}
+function loadEmojiOrder() {
+  try {
+    const raw = localStorage.getItem('todo-emoji-order');
+    if (raw) {
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved) && saved.length) {
+        const savedValid = saved.filter(e => QUICK_EMOJI.includes(e));
+        const missing = QUICK_EMOJI.filter(e => !savedValid.includes(e));
+        QUICK_EMOJI = [...savedValid, ...missing];
+      }
+    }
+  } catch (e) {}
+  renderEmojiPicks();
+}
+loadEmojiOrder();
+
+function loadCollapsedGroups() {
+  try {
+    const raw = localStorage.getItem('todo-collapsed-groups');
+    if (raw) collapsedGroups = new Set(JSON.parse(raw));
+  } catch (e) {}
+}
+function saveCollapsedGroups() {
+  try { localStorage.setItem('todo-collapsed-groups', JSON.stringify([...collapsedGroups])); } catch (e) {}
+}
+
+function formatDate() {
+  const d = new Date();
+  const days = ['週日','週一','週二','週三','週四','週五','週六'];
+  return `${d.getMonth()+1}月${d.getDate()}日 ${days[d.getDay()]}`;
+}
+dateLine.textContent = formatDate();
+
+function formatDue(ts) {
+  const d = new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function toDatetimeLocalValue(ts) {
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function uid() { return 't' + Date.now() + Math.random().toString(36).slice(2, 7); }
+
+function presetDueNow() {
+  const el = document.getElementById('new-due');
+  if (!el.value) el.value = toDatetimeLocalValue(Date.now());
+}
+document.getElementById('new-due').addEventListener('focus', presetDueNow);
+document.getElementById('new-due').addEventListener('click', presetDueNow);
+
+function loadTodos() {
+  try {
+    const raw = localStorage.getItem('todo-list');
+    if (raw) todos = JSON.parse(raw);
+  } catch (e) { todos = []; }
+  render();
+}
+function saveTodos() {
+  clearTimeout(saveTimeout);
+  saveIndicator.textContent = '儲存中...';
+  saveTimeout = setTimeout(() => {
+    try {
+      localStorage.setItem('todo-list', JSON.stringify(todos));
+      saveIndicator.textContent = '已儲存';
+      setTimeout(() => { saveIndicator.textContent = ''; }, 1200);
+    } catch (e) { saveIndicator.textContent = '儲存失敗'; }
+  }, 200);
+}
+function flushSaveTodos() {
+  clearTimeout(saveTimeout);
+  try { localStorage.setItem('todo-list', JSON.stringify(todos)); } catch (e) {}
+}
+window.addEventListener('pagehide', flushSaveTodos);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushSaveTodos();
+});
+
+function addTodo() {
+  const input = document.getElementById('new-item');
+  const catInput = document.getElementById('new-cat');
+  const dueInput = document.getElementById('new-due');
+  const emojiInput = document.getElementById('new-emoji');
+  const repeatInput = document.getElementById('new-repeat');
+  const text = input.value.trim();
+  if (!text) return;
+  const category = catInput.value.trim();
+  const dueAt = dueInput.value ? new Date(dueInput.value).getTime() : null;
+  const emoji = emojiInput.value.trim();
+  const repeat = repeatInput.value;
+
+  todos.unshift({
+    id: uid(), text, emoji: emoji || null, done: false, category: category || null,
+    dueAt, repeat, reminded: false, pinned: newPinned, important: newImportant, createdAt: Date.now()
+  });
+
+  input.value = ''; catInput.value = ''; emojiInput.value = ''; repeatInput.value = 'none';
+  dueInput.value = '';
+  newPinned = false; newImportant = false;
+  document.getElementById('new-pin').classList.remove('active');
+  document.getElementById('new-imp').classList.remove('active');
+
+  render(); saveTodos(); input.focus();
+}
+
+function advanceOnce(ts, repeat) {
+  const d = new Date(ts);
+  if (repeat === 'daily') d.setDate(d.getDate() + 1);
+  else if (repeat === 'weekly') d.setDate(d.getDate() + 7);
+  else if (repeat === 'monthly') d.setMonth(d.getMonth() + 1);
+  return d.getTime();
+}
+function advanceUntilFuture(ts, repeat, now) {
+  let next = ts;
+  let guard = 0;
+  while (next <= now && guard < 1000) { next = advanceOnce(next, repeat); guard++; }
+  return next;
+}
+
+function toggleTodo(id) {
+  const t = todos.find(x => x.id === id);
+  if (!t) return;
+  if (!t.done && t.repeat && t.repeat !== 'none' && t.dueAt) {
+    t.dueAt = advanceOnce(t.dueAt, t.repeat);
+    t.reminded = false;
+    t.done = false;
+  } else {
+    t.done = !t.done;
+    if (t.done) {
+      t.completedAt = Date.now();
+      scheduleHideCompleted();
+    } else {
+      t.completedAt = null;
+    }
+  }
+  render(); saveTodos();
+}
+function scheduleHideCompleted() {
+  setTimeout(() => { render(); }, 3100);
+}
+function deleteTodo(id) { todos = todos.filter(x => x.id !== id); render(); saveTodos(); }
+function togglePin(id) { const t = todos.find(x => x.id === id); if (t) t.pinned = !t.pinned; render(); saveTodos(); }
+function toggleImportant(id) { const t = todos.find(x => x.id === id); if (t) t.important = !t.important; render(); saveTodos(); }
+function clearDone() { todos = todos.filter(x => !x.done); render(); saveTodos(); }
+function startEdit(id) { editingId = id; render(); }
+function cancelEdit() { editingId = null; render(); }
+function saveEdit(id) {
+  const t = todos.find(x => x.id === id);
+  if (!t) return;
+  const textEl = document.getElementById('edit-text-' + id);
+  const catEl = document.getElementById('edit-cat-' + id);
+  const dueEl = document.getElementById('edit-due-' + id);
+  const emojiEl = document.getElementById('edit-emoji-' + id);
+  const repeatEl = document.getElementById('edit-repeat-' + id);
+  const newText = textEl.value.trim();
+  if (!newText) { textEl.focus(); return; }
+  t.text = newText;
+  t.category = catEl.value.trim() || null;
+  t.dueAt = dueEl.value ? new Date(dueEl.value).getTime() : null;
+  t.emoji = emojiEl.value.trim() || null;
+  t.repeat = repeatEl.value;
+  t.reminded = false;
+  editingId = null;
+  render(); saveTodos();
+}
+
+function groupKey(cat) { return cat === null || cat === undefined ? '' : cat; }
+
+let categoryOrder = [];
+let categoryOrderCustomized = false;
+function loadCategoryOrder() {
+  try {
+    const raw = localStorage.getItem('todo-category-order');
+    if (raw) categoryOrder = JSON.parse(raw);
+  } catch (e) { categoryOrder = []; }
+  try {
+    categoryOrderCustomized = localStorage.getItem('todo-category-order-customized') === '1';
+  } catch (e) { categoryOrderCustomized = false; }
+}
+function saveCategoryOrder() {
+  try { localStorage.setItem('todo-category-order', JSON.stringify(categoryOrder)); } catch (e) {}
+}
+function ensureCategoryOrder(keys) {
+  let changed = false;
+  keys.forEach(k => {
+    if (!categoryOrder.includes(k)) { categoryOrder.push(k); changed = true; }
+  });
+  if (changed) saveCategoryOrder();
+}
+function commitCategoryReorder(newOrder) {
+  const visibleSet = new Set(newOrder);
+  let ptr = 0;
+  categoryOrder = categoryOrder.map(key => visibleSet.has(key) ? newOrder[ptr++] : key);
+  newOrder.forEach(k => { if (!categoryOrder.includes(k)) categoryOrder.push(k); });
+  if (newOrder.includes('') && newOrder[0] !== '') {
+    categoryOrderCustomized = true;
+    try { localStorage.setItem('todo-category-order-customized', '1'); } catch (e) {}
+  }
+  saveCategoryOrder();
+}
+
+function getGroups(filteredList) {
+  const presentKeys = [];
+  todos.forEach(t => {
+    const key = groupKey(t.category);
+    if (!presentKeys.includes(key)) presentKeys.push(key);
+  });
+  ensureCategoryOrder(presentKeys);
+
+  const buckets = new Map();
+  filteredList.forEach(t => {
+    const key = groupKey(t.category);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(t);
+  });
+
+  let orderedKeys = categoryOrder.filter(k => buckets.has(k));
+  buckets.forEach((_, k) => { if (!orderedKeys.includes(k)) orderedKeys.push(k); });
+
+  if (!categoryOrderCustomized && orderedKeys.includes('')) {
+    orderedKeys = ['', ...orderedKeys.filter(k => k !== '')];
+  }
+
+  const groups = orderedKeys.map(k => [k, buckets.get(k)]);
+  groups.forEach(([, items]) => items.sort((a, b) => (a.pinned === b.pinned) ? 0 : (a.pinned ? -1 : 1)));
+  return groups;
+}
+
+function renderCatDatalist() {
+  const cats = [...new Set(todos.map(t => t.category).filter(Boolean))];
+  catListEl.innerHTML = cats.map(c => `<option value="${c}"></option>`).join('');
+}
+
+function render() {
+  renderCatDatalist();
+  const filteredAll = todos.filter(t => {
+    if (filter === 'active' && t.done) return false;
+    if (filter === 'done' && !t.done) return false;
+    if (filter === 'all' && t.done) {
+      const completedAt = t.completedAt || 0;
+      if (Date.now() - completedAt > 3000) return false;
+    }
+    return true;
+  });
+
+  const groups = getGroups(filteredAll);
+  groupsEl.innerHTML = '';
+  emptyEl.style.display = groups.length === 0 ? 'block' : 'none';
+  const now = Date.now();
+
+  groups.forEach(([key, items]) => {
+    const groupWrap = document.createElement('div');
+    groupWrap.className = 'group';
+    groupWrap.dataset.category = key;
+
+    const header = document.createElement('div');
+    header.className = 'group-header';
+    const collapsed = collapsedGroups.has(key);
+
+    const dragHandle = document.createElement('span');
+    dragHandle.className = 'group-drag-handle';
+    dragHandle.innerHTML = gripSvg();
+    header.appendChild(dragHandle);
+
+    const dot = document.createElement('span');
+    dot.className = 'group-dot';
+    dot.style.background = key ? colorFor(key) : '#C7C7CC';
+    header.appendChild(dot);
+
+    const name = document.createElement('span');
+    name.className = 'group-name';
+    name.textContent = key || '未分類';
+    header.appendChild(name);
+
+    const count = document.createElement('span');
+    count.className = 'group-count';
+    count.textContent = items.length;
+    header.appendChild(count);
+
+    const chevron = document.createElement('span');
+    chevron.className = 'group-chevron' + (collapsed ? ' collapsed' : '');
+    chevron.innerHTML = chevronSvg();
+    header.appendChild(chevron);
+
+    header.addEventListener('click', (e) => {
+      if (e.target.closest('.group-drag-handle')) return;
+      if (collapsedGroups.has(key)) collapsedGroups.delete(key);
+      else collapsedGroups.add(key);
+      saveCollapsedGroups();
+      render();
+    });
+
+    groupWrap.appendChild(header);
+
+    const ul = document.createElement('ul');
+    ul.className = 'group-list' + (collapsed ? ' collapsed' : '');
+    ul.dataset.category = key;
+
+    items.forEach((t) => {
+      const li = document.createElement('li');
+      li.className = 'item' + (t.important ? ' important' : '');
+      li.dataset.id = t.id;
+
+      if (t.pinned) {
+        const badge = document.createElement('span');
+        badge.className = 'pin-badge';
+        badge.textContent = '置頂';
+        li.appendChild(badge);
+      }
+
+      if (editingId === t.id) {
+        const panel = document.createElement('div');
+        panel.className = 'edit-panel';
+        panel.innerHTML = `
+          <div class="edit-row">
+            <input type="text" class="edit-emoji" id="edit-emoji-${t.id}" maxlength="4" value="${t.emoji || ''}" placeholder="😀">
+            <input type="text" id="edit-text-${t.id}" value="${t.text.replace(/"/g,'&quot;')}">
+          </div>
+          <div class="edit-row">
+            <input type="text" class="edit-cat" id="edit-cat-${t.id}" value="${t.category || ''}" placeholder="分類" maxlength="12">
+            <input type="datetime-local" id="edit-due-${t.id}" value="${t.dueAt ? toDatetimeLocalValue(t.dueAt) : ''}">
+          </div>
+          <div class="edit-row">
+            <select id="edit-repeat-${t.id}" style="flex:1;">
+              <option value="none" ${(!t.repeat || t.repeat === 'none') ? 'selected' : ''}>不重複</option>
+              <option value="daily" ${t.repeat === 'daily' ? 'selected' : ''}>每天</option>
+              <option value="weekly" ${t.repeat === 'weekly' ? 'selected' : ''}>每週</option>
+              <option value="monthly" ${t.repeat === 'monthly' ? 'selected' : ''}>每月</option>
+            </select>
+          </div>
+          <div class="edit-actions">
+            <button class="save-btn" type="button">儲存</button>
+            <button class="cancel-btn" type="button">取消</button>
+          </div>
+        `;
+        panel.querySelector('.save-btn').addEventListener('click', () => saveEdit(t.id));
+        panel.querySelector('.cancel-btn').addEventListener('click', cancelEdit);
+        li.appendChild(panel);
+        ul.appendChild(li);
+        return;
+      }
+
+      const canDrag = filter === 'all';
+      const handle = document.createElement('div');
+      handle.className = 'drag-handle' + (canDrag ? '' : ' disabled');
+      handle.innerHTML = gripSvg();
+      if (!canDrag) handle.title = '在「全部」檢視下才能拖曳排序';
+      li.appendChild(handle);
+
+      const check = document.createElement('div');
+      check.className = 'check' + (t.done ? ' done' : '');
+      if (t.done) check.innerHTML = checkSvg();
+      check.addEventListener('click', () => toggleTodo(t.id));
+      li.appendChild(check);
+
+      if (t.emoji) {
+        const emojiSpan = document.createElement('span');
+        emojiSpan.className = 'item-emoji';
+        emojiSpan.textContent = t.emoji;
+        li.appendChild(emojiSpan);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'item-body';
+      body.addEventListener('click', () => startEdit(t.id));
+      const text = document.createElement('div');
+      text.className = 'item-text' + (t.done ? ' done' : '');
+      text.textContent = t.text;
+      body.appendChild(text);
+
+      const meta = document.createElement('div');
+      meta.className = 'meta-line';
+      if (t.dueAt) {
+        const due = document.createElement('span');
+        const overdue = t.dueAt < now && !t.done;
+        due.className = 'due-text' + (overdue ? ' overdue' : '');
+        due.textContent = (overdue ? '已過期 · ' : '') + formatDue(t.dueAt);
+        meta.appendChild(due);
+      }
+      if (t.repeat && t.repeat !== 'none') {
+        const rep = document.createElement('span');
+        rep.className = 'tag repeat-tag';
+        rep.innerHTML = repeatSvg() + '<span>' + REPEAT_LABELS[t.repeat] + '</span>';
+        meta.appendChild(rep);
+      }
+      if (meta.childNodes.length) body.appendChild(meta);
+      li.appendChild(body);
+
+      const actions = document.createElement('div');
+      actions.className = 'item-actions';
+      const pinBtn = document.createElement('button');
+      pinBtn.innerHTML = pinSvg();
+      pinBtn.className = 'pin-icon-btn' + (t.pinned ? ' active-pin' : '');
+      pinBtn.addEventListener('click', () => togglePin(t.id));
+      const impBtn = document.createElement('button');
+      impBtn.innerHTML = starSvg();
+      impBtn.className = t.important ? 'active-imp' : '';
+      impBtn.addEventListener('click', () => toggleImportant(t.id));
+      actions.appendChild(pinBtn);
+      actions.appendChild(impBtn);
+      li.appendChild(actions);
+
+      ul.appendChild(li);
+    });
+
+    groupWrap.appendChild(ul);
+    groupsEl.appendChild(groupWrap);
+  });
+
+  const remaining = todos.filter(t => !t.done).length;
+  remainingEl.textContent = `剩餘 ${remaining} 項`;
+}
+
+document.getElementById('add-btn').addEventListener('click', addTodo);
+document.getElementById('new-item').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTodo(); });
+document.getElementById('new-pin').addEventListener('click', () => {
+  newPinned = !newPinned;
+  document.getElementById('new-pin').classList.toggle('active', newPinned);
+});
+document.getElementById('new-imp').addEventListener('click', () => {
+  newImportant = !newImportant;
+  document.getElementById('new-imp').classList.toggle('active', newImportant);
+});
+document.getElementById('clear-done').addEventListener('click', clearDone);
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filter = btn.dataset.filter;
+    render();
+  });
+});
+
+let dragEl = null;
+
+groupsEl.addEventListener('pointerdown', (e) => {
+  const handle = e.target.closest('.drag-handle');
+  if (!handle || handle.classList.contains('disabled')) return;
+  const li = handle.closest('li.item');
+  if (!li) return;
+  dragEl = li;
+  li.classList.add('dragging');
+  document.addEventListener('pointermove', onDragMove);
+  document.addEventListener('pointerup', onDragEnd);
+  document.addEventListener('pointercancel', onDragEnd);
+  e.preventDefault();
+});
+
+function onDragMove(e) {
+  if (!dragEl) return;
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  const overLi = target ? target.closest('li.item') : null;
+  if (!overLi || overLi === dragEl) return;
+  if (overLi.parentElement !== dragEl.parentElement) return;
+  const overRect = overLi.getBoundingClientRect();
+  const before = e.clientY < overRect.top + overRect.height / 2;
+  if (before) dragEl.parentElement.insertBefore(dragEl, overLi);
+  else dragEl.parentElement.insertBefore(dragEl, overLi.nextSibling);
+}
+
+function onDragEnd() {
+  if (!dragEl) return;
+  dragEl.classList.remove('dragging');
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup', onDragEnd);
+  document.removeEventListener('pointercancel', onDragEnd);
+
+  const ul = dragEl.parentElement;
+  const key = ul.dataset.category;
+  const newIds = [...ul.querySelectorAll('li.item[data-id]')].map(li => li.dataset.id);
+  const original = todos;
+  let ptr = 0;
+  todos = original.map(t => {
+    if (groupKey(t.category) === key) {
+      const id = newIds[ptr++];
+      return original.find(x => x.id === id);
+    }
+    return t;
+  });
+
+  dragEl = null;
+  render();
+  saveTodos();
+}
+
+let groupDragEl = null;
+
+groupsEl.addEventListener('pointerdown', (e) => {
+  const handle = e.target.closest('.group-drag-handle');
+  if (!handle) return;
+  const groupEl = handle.closest('.group');
+  if (!groupEl) return;
+  groupDragEl = groupEl;
+  groupEl.classList.add('dragging');
+  document.addEventListener('pointermove', onGroupDragMove);
+  document.addEventListener('pointerup', onGroupDragEnd);
+  document.addEventListener('pointercancel', onGroupDragEnd);
+  e.preventDefault();
+  e.stopPropagation();
+});
+
+function onGroupDragMove(e) {
+  if (!groupDragEl) return;
+  const target = document.elementFromPoint(e.clientX, e.clientY);
+  const overGroup = target ? target.closest('.group') : null;
+  if (!overGroup || overGroup === groupDragEl || overGroup.parentElement !== groupsEl) return;
+  const rect = overGroup.getBoundingClientRect();
+  const before = e.clientY < rect.top + rect.height / 2;
+  if (before) groupsEl.insertBefore(groupDragEl, overGroup);
+  else groupsEl.insertBefore(groupDragEl, overGroup.nextSibling);
+}
+
+function onGroupDragEnd() {
+  if (!groupDragEl) return;
+  groupDragEl.classList.remove('dragging');
+  document.removeEventListener('pointermove', onGroupDragMove);
+  document.removeEventListener('pointerup', onGroupDragEnd);
+  document.removeEventListener('pointercancel', onGroupDragEnd);
+
+  const newOrder = [...groupsEl.querySelectorAll('.group')].map(g => g.dataset.category);
+  commitCategoryReorder(newOrder);
+  groupDragEl = null;
+  render();
+}
+
+function showNextReminder() {
+  if (modalShowing || reminderQueue.length === 0) return;
+  currentReminder = reminderQueue.shift();
+  modalShowing = true;
+  modalName.textContent = (currentReminder.emoji ? currentReminder.emoji + ' ' : '') + currentReminder.text;
+  const metaParts = [];
+  if (currentReminder.category) metaParts.push(currentReminder.category);
+  if (currentReminder.dueAt) metaParts.push(formatDue(currentReminder.dueAt));
+  modalMeta.textContent = metaParts.join(' · ');
+  modalOverlay.classList.add('show');
+}
+function closeReminderModal() {
+  modalOverlay.classList.remove('show');
+  modalShowing = false;
+  currentReminder = null;
+  setTimeout(showNextReminder, 250);
+}
+modalCloseBtn.addEventListener('click', () => { closeReminderModal(); });
+modalDoneBtn.addEventListener('click', () => {
+  if (currentReminder) {
+    const t = todos.find(x => x.id === currentReminder.id);
+    if (t) {
+      if (t.repeat && t.repeat !== 'none' && t.dueAt) {
+        t.dueAt = advanceOnce(t.dueAt, t.repeat);
+        t.reminded = false;
+        t.done = false;
+      } else {
+        t.done = true;
+        t.completedAt = Date.now();
+        scheduleHideCompleted();
+      }
+      render(); saveTodos();
+    }
+  }
+  closeReminderModal();
+});
+document.querySelectorAll('.modal-snooze-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (currentReminder) {
+      const t = todos.find(x => x.id === currentReminder.id);
+      if (t) {
+        const mins = parseInt(btn.dataset.min, 10);
+        t.dueAt = Date.now() + mins * 60000;
+        t.reminded = false;
+        render(); saveTodos();
+      }
+    }
+    closeReminderModal();
+  });
+});
+
+setInterval(() => {
+  const now = Date.now();
+  let changed = false;
+  todos.forEach(t => {
+    if (t.dueAt && !t.done && !t.reminded && t.dueAt <= now) {
+      t.reminded = true;
+      changed = true;
+      reminderQueue.push({ id: t.id, emoji: t.emoji, text: t.text, category: t.category, dueAt: t.dueAt });
+      if (t.repeat && t.repeat !== 'none') {
+        t.dueAt = advanceUntilFuture(t.dueAt, t.repeat, now);
+        t.reminded = false;
+      }
+    }
+  });
+  if (changed) { saveTodos(); render(); }
+  showNextReminder();
+}, 5000);
+
+loadCategoryOrder();
+loadCollapsedGroups();
+loadTodos();
+</script>
+
+</body>
+</html>
