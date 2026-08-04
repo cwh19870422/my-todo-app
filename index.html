@@ -27,11 +27,11 @@
     color: var(--label);
     display: flex; justify-content: center;
   }
-  .screen { width: 100%; max-width: 420px; padding: 20px 16px 50px; }
+  #scale-outer { position: relative; }
+  .screen { width: 420px; padding: 20px 16px 50px; transform-origin: top center; }
 
-  .title-block { padding: 4px 4px 14px; }
-  .title-block h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.4px; margin: 0; }
-  .title-block .date { font-size: 13px; color: var(--label2); margin-top: 2px; }
+  .title-block { padding: 6px 4px 10px; }
+  .title-block .date { font-size: 13px; color: var(--label2); }
 
   .segmented {
     display: flex; background: var(--fill); border-radius: 9px; padding: 2px; margin-bottom: 14px;
@@ -53,7 +53,6 @@
     background: transparent; flex: 1; padding: 0;
   }
   .field-row input::placeholder { color: #C7C7CC; }
-  .field-emoji { width: 28px; text-align: center; font-size: 17px; flex: none !important; }
   .field-label { font-size: 14px; color: var(--label); width: 60px; flex-shrink: 0; }
   .field-row input[type="datetime-local"] { text-align: right; color: var(--label2); font-size: 13px; }
   .field-row select {
@@ -77,13 +76,6 @@
   .more-options { display: none; }
   .more-options.open { display: block; }
 
-  .emoji-picks { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; border-bottom: 0.5px solid var(--sep); }
-  .emoji-picks button {
-    flex: none; background: var(--fill); border: none; font-size: 15px; width: 28px; height: 28px;
-    border-radius: 8px; cursor: grab; touch-action: none;
-  }
-  .emoji-picks button.dragging { opacity: 0.35; }
-
   .toggle-row { display: flex; gap: 8px; padding: 8px 12px; }
   .toggle-pill {
     display: flex; align-items: center; gap: 5px; border: none; font-family: inherit;
@@ -93,12 +85,12 @@
   .toggle-pill.pin.active { background: rgba(255,149,0,0.15); color: var(--orange); }
   .toggle-pill.imp.active { background: rgba(255,59,48,0.15); color: var(--red); }
 
-  .add-btn {
-    display: block; width: calc(100% - 24px); margin: 10px 12px 12px; background: var(--blue);
-    color: #fff; border: none; font-family: inherit; font-size: 15px; font-weight: 600;
-    padding: 11px 0; border-radius: 11px; cursor: pointer;
+  .add-inline-btn {
+    flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--blue);
+    color: #fff; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
-  .add-btn:active { opacity: 0.75; }
+  .add-inline-btn svg { width: 16px; height: 16px; }
+  .add-inline-btn:active { opacity: 0.75; }
 
   .group { margin-bottom: 14px; }
   .group.dragging { opacity: 0.45; }
@@ -146,8 +138,6 @@
   .check.done { background: var(--blue); border-color: var(--blue); }
   .check.done svg { width: 13px; height: 13px; }
 
-  .item-emoji { font-size: 19px; line-height: 1.3; flex-shrink: 0; }
-
   .item-body { flex: 1; min-width: 0; padding-right: 58px; cursor: pointer; }
   .item-text { font-size: 16px; line-height: 1.35; word-break: break-word; cursor: pointer; }
   .item-text.done { text-decoration: line-through; color: var(--label2); }
@@ -174,7 +164,6 @@
     background: var(--fill); border: none; border-radius: 8px; font-family: inherit;
     font-size: 14px; color: var(--label); padding: 8px 10px; outline: none; flex: 1;
   }
-  .edit-row input.edit-emoji { width: 44px; text-align: center; flex: none; }
   .edit-row input.edit-cat { width: 90px; flex: none; }
   .edit-row input[type="datetime-local"] {
     background: var(--fill); border: none; border-radius: 8px; font-family: inherit;
@@ -232,9 +221,9 @@
 </head>
 <body>
 
-<div class="screen">
+<div id="scale-outer">
+<div class="screen" id="app-root">
   <div class="title-block">
-    <h1>待辦事項</h1>
     <div class="date" id="date-line"></div>
   </div>
 
@@ -248,17 +237,15 @@
     <div class="field-group">
       <div class="field-row">
         <input type="text" id="new-item" placeholder="新增待辦事項" style="flex:1;">
+        <button type="button" class="add-inline-btn" id="add-btn" aria-label="加入">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
       </div>
       <div class="field-row">
         <span class="field-label">分類</span>
         <input type="text" id="new-cat" placeholder="例如：工作" maxlength="12" list="cat-list">
         <datalist id="cat-list"></datalist>
       </div>
-      <div class="field-row">
-        <span class="field-label">圖案</span>
-        <input type="text" id="new-emoji" class="field-emoji" placeholder="😀" maxlength="4">
-      </div>
-      <div class="emoji-picks" id="emoji-picks"></div>
     </div>
     <button type="button" class="more-toggle" id="more-toggle">
       <span>更多選項</span>
@@ -283,7 +270,6 @@
         <button type="button" class="toggle-pill imp" id="new-imp">⭐ 重要</button>
       </div>
     </div>
-    <button class="add-btn" id="add-btn">加入待辦事項</button>
   </div>
 
   <div id="groups"></div>
@@ -293,8 +279,15 @@
     <span id="remaining-count">剩餘 0 項</span>
     <button id="clear-done">清除已完成</button>
   </div>
+  <div class="footer-row" style="margin-top:2px;">
+    <button id="export-backup-btn" style="color: var(--blue);">匯出備份</button>
+    <button id="import-backup-btn" style="color: var(--blue);">匯入還原</button>
+  </div>
+  <input type="file" id="import-file-input" accept="application/json" style="display:none;">
   <div class="reminder-note">到期提醒會在此頁面開啟時彈出，需手動關閉</div>
+  <div class="reminder-note" id="auto-backup-note">每天 19:00（頁面需開啟）會自動匯出一次備份</div>
   <div class="save-indicator" style="text-align:center; font-size:11px; color:var(--label2); margin-top:8px;" id="save-indicator"></div>
+</div>
 </div>
 
 <div class="modal-overlay" id="modal-overlay">
@@ -325,7 +318,6 @@ let modalShowing = false;
 let currentReminder = null;
 let collapsedGroups = new Set();
 
-let QUICK_EMOJI = ['⭐','🔥','✅','📌','🎯','💡','📅','🛒','🏃','💪','📚','💰','🏠','🎉','📦'];
 const CAT_COLORS = ['#007AFF','#34C759','#FF9500','#FF3B30','#AF52DE','#30B0C7','#FF2D55'];
 
 function colorFor(name) {
@@ -369,7 +361,6 @@ const remainingEl = document.getElementById('remaining-count');
 const dateLine = document.getElementById('date-line');
 const saveIndicator = document.getElementById('save-indicator');
 const catListEl = document.getElementById('cat-list');
-const emojiPicksEl = document.getElementById('emoji-picks');
 const modalOverlay = document.getElementById('modal-overlay');
 const modalName = document.getElementById('modal-name');
 const modalMeta = document.getElementById('modal-meta');
@@ -383,66 +374,6 @@ moreToggle.addEventListener('click', () => {
   moreToggle.classList.toggle('open', open);
   moreToggle.querySelector('span').textContent = open ? '收起選項' : '更多選項';
 });
-
-function renderEmojiPicks() {
-  emojiPicksEl.innerHTML = QUICK_EMOJI.map(e => `<button type="button" data-e="${e}">${e}</button>`).join('');
-  emojiPicksEl.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('pointerdown', onEmojiPointerDown);
-  });
-}
-let emojiDragEl = null;
-let emojiDragMoved = false;
-let emojiDragStartX = 0;
-function onEmojiPointerDown(e) {
-  emojiDragEl = e.currentTarget;
-  emojiDragMoved = false;
-  emojiDragStartX = e.clientX;
-  document.addEventListener('pointermove', onEmojiDragMove);
-  document.addEventListener('pointerup', onEmojiDragEnd);
-}
-function onEmojiDragMove(e) {
-  if (!emojiDragEl) return;
-  if (!emojiDragMoved && Math.abs(e.clientX - emojiDragStartX) > 6) {
-    emojiDragMoved = true;
-    emojiDragEl.classList.add('dragging');
-  }
-  if (!emojiDragMoved) return;
-  const target = document.elementFromPoint(e.clientX, e.clientY);
-  const overBtn = target ? target.closest('#emoji-picks button') : null;
-  if (!overBtn || overBtn === emojiDragEl) return;
-  const rect = overBtn.getBoundingClientRect();
-  const before = e.clientX < rect.left + rect.width / 2;
-  if (before) emojiPicksEl.insertBefore(emojiDragEl, overBtn);
-  else emojiPicksEl.insertBefore(emojiDragEl, overBtn.nextSibling);
-}
-function onEmojiDragEnd() {
-  document.removeEventListener('pointermove', onEmojiDragMove);
-  document.removeEventListener('pointerup', onEmojiDragEnd);
-  if (!emojiDragEl) return;
-  if (!emojiDragMoved) {
-    document.getElementById('new-emoji').value = emojiDragEl.dataset.e;
-  } else {
-    emojiDragEl.classList.remove('dragging');
-    QUICK_EMOJI = [...emojiPicksEl.querySelectorAll('button')].map(b => b.dataset.e);
-    try { localStorage.setItem('todo-emoji-order', JSON.stringify(QUICK_EMOJI)); } catch (e) {}
-  }
-  emojiDragEl = null;
-}
-function loadEmojiOrder() {
-  try {
-    const raw = localStorage.getItem('todo-emoji-order');
-    if (raw) {
-      const saved = JSON.parse(raw);
-      if (Array.isArray(saved) && saved.length) {
-        const savedValid = saved.filter(e => QUICK_EMOJI.includes(e));
-        const missing = QUICK_EMOJI.filter(e => !savedValid.includes(e));
-        QUICK_EMOJI = [...savedValid, ...missing];
-      }
-    }
-  } catch (e) {}
-  renderEmojiPicks();
-}
-loadEmojiOrder();
 
 function loadCollapsedGroups() {
   try {
@@ -510,21 +441,19 @@ function addTodo() {
   const input = document.getElementById('new-item');
   const catInput = document.getElementById('new-cat');
   const dueInput = document.getElementById('new-due');
-  const emojiInput = document.getElementById('new-emoji');
   const repeatInput = document.getElementById('new-repeat');
   const text = input.value.trim();
   if (!text) return;
   const category = catInput.value.trim();
   const dueAt = dueInput.value ? new Date(dueInput.value).getTime() : null;
-  const emoji = emojiInput.value.trim();
   const repeat = repeatInput.value;
 
   todos.unshift({
-    id: uid(), text, emoji: emoji || null, done: false, category: category || null,
+    id: uid(), text, done: false, category: category || null,
     dueAt, repeat, reminded: false, pinned: newPinned, important: newImportant, createdAt: Date.now()
   });
 
-  input.value = ''; catInput.value = ''; emojiInput.value = ''; repeatInput.value = 'none';
+  input.value = ''; catInput.value = ''; repeatInput.value = 'none';
   dueInput.value = '';
   newPinned = false; newImportant = false;
   document.getElementById('new-pin').classList.remove('active');
@@ -580,14 +509,12 @@ function saveEdit(id) {
   const textEl = document.getElementById('edit-text-' + id);
   const catEl = document.getElementById('edit-cat-' + id);
   const dueEl = document.getElementById('edit-due-' + id);
-  const emojiEl = document.getElementById('edit-emoji-' + id);
   const repeatEl = document.getElementById('edit-repeat-' + id);
   const newText = textEl.value.trim();
   if (!newText) { textEl.focus(); return; }
   t.text = newText;
   t.category = catEl.value.trim() || null;
   t.dueAt = dueEl.value ? new Date(dueEl.value).getTime() : null;
-  t.emoji = emojiEl.value.trim() || null;
   t.repeat = repeatEl.value;
   t.reminded = false;
   editingId = null;
@@ -743,7 +670,6 @@ function render() {
         panel.className = 'edit-panel';
         panel.innerHTML = `
           <div class="edit-row">
-            <input type="text" class="edit-emoji" id="edit-emoji-${t.id}" maxlength="4" value="${t.emoji || ''}" placeholder="😀">
             <input type="text" id="edit-text-${t.id}" value="${t.text.replace(/"/g,'&quot;')}">
           </div>
           <div class="edit-row">
@@ -782,13 +708,6 @@ function render() {
       if (t.done) check.innerHTML = checkSvg();
       check.addEventListener('click', () => toggleTodo(t.id));
       li.appendChild(check);
-
-      if (t.emoji) {
-        const emojiSpan = document.createElement('span');
-        emojiSpan.className = 'item-emoji';
-        emojiSpan.textContent = t.emoji;
-        li.appendChild(emojiSpan);
-      }
 
       const body = document.createElement('div');
       body.className = 'item-body';
@@ -958,7 +877,7 @@ function showNextReminder() {
   if (modalShowing || reminderQueue.length === 0) return;
   currentReminder = reminderQueue.shift();
   modalShowing = true;
-  modalName.textContent = (currentReminder.emoji ? currentReminder.emoji + ' ' : '') + currentReminder.text;
+  modalName.textContent = currentReminder.text;
   const metaParts = [];
   if (currentReminder.category) metaParts.push(currentReminder.category);
   if (currentReminder.dueAt) metaParts.push(formatDue(currentReminder.dueAt));
@@ -1012,7 +931,7 @@ setInterval(() => {
     if (t.dueAt && !t.done && !t.reminded && t.dueAt <= now) {
       t.reminded = true;
       changed = true;
-      reminderQueue.push({ id: t.id, emoji: t.emoji, text: t.text, category: t.category, dueAt: t.dueAt });
+      reminderQueue.push({ id: t.id, text: t.text, category: t.category, dueAt: t.dueAt });
       if (t.repeat && t.repeat !== 'none') {
         t.dueAt = advanceUntilFuture(t.dueAt, t.repeat, now);
         t.reminded = false;
@@ -1023,9 +942,104 @@ setInterval(() => {
   showNextReminder();
 }, 5000);
 
+function formatDateForFilename(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function getBackupData() {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    todoList: localStorage.getItem('todo-list'),
+    collapsedGroups: localStorage.getItem('todo-collapsed-groups'),
+    categoryOrder: localStorage.getItem('todo-category-order'),
+    categoryOrderCustomized: localStorage.getItem('todo-category-order-customized')
+  };
+}
+function exportBackup() {
+  try {
+    const data = getBackupData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `todo-${formatDateForFilename(new Date())}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) {}
+}
+function importBackupFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (typeof data.todoList === 'string') localStorage.setItem('todo-list', data.todoList);
+      if (typeof data.collapsedGroups === 'string') localStorage.setItem('todo-collapsed-groups', data.collapsedGroups);
+      if (typeof data.categoryOrder === 'string') localStorage.setItem('todo-category-order', data.categoryOrder);
+      if (typeof data.categoryOrderCustomized === 'string') localStorage.setItem('todo-category-order-customized', data.categoryOrderCustomized);
+      loadCategoryOrder();
+      loadCollapsedGroups();
+      loadTodos();
+      alert('備份還原成功！');
+    } catch (err) {
+      alert('還原失敗，檔案格式不正確');
+    }
+  };
+  reader.readAsText(file);
+}
+document.getElementById('export-backup-btn').addEventListener('click', exportBackup);
+document.getElementById('import-backup-btn').addEventListener('click', () => {
+  document.getElementById('import-file-input').click();
+});
+document.getElementById('import-file-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) importBackupFile(file);
+  e.target.value = '';
+});
+
+function checkAutoExport() {
+  const now = new Date();
+  const todayStr = formatDateForFilename(now);
+  let lastExport = null;
+  try { lastExport = localStorage.getItem('todo-last-auto-export'); } catch (e) {}
+  if (now.getHours() >= 19 && lastExport !== todayStr) {
+    exportBackup();
+    try { localStorage.setItem('todo-last-auto-export', todayStr); } catch (e) {}
+  }
+}
+setInterval(checkAutoExport, 60000);
+
+const scaleOuter = document.getElementById('scale-outer');
+const appRoot = document.getElementById('app-root');
+const BASE_WIDTH = 420;
+const MIN_SCALE = 0.8;
+const MAX_SCALE = 1.7;
+function updateScale() {
+  const availableWidth = window.innerWidth - 24;
+  const availableHeight = window.innerHeight - 24;
+  let scale = availableWidth / BASE_WIDTH;
+  const naturalHeight = appRoot.offsetHeight || 1;
+  const heightScale = availableHeight / naturalHeight;
+  scale = Math.min(scale, heightScale > 0 ? Math.max(heightScale, MIN_SCALE) : scale);
+  scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+  appRoot.style.transform = `scale(${scale})`;
+  scaleOuter.style.width = (BASE_WIDTH * scale) + 'px';
+  scaleOuter.style.height = (naturalHeight * scale) + 'px';
+}
+window.addEventListener('resize', updateScale);
+if (window.ResizeObserver) {
+  new ResizeObserver(updateScale).observe(appRoot);
+} else {
+  setInterval(updateScale, 1000);
+}
+
 loadCategoryOrder();
 loadCollapsedGroups();
 loadTodos();
+checkAutoExport();
+updateScale();
 </script>
 
 </body>
