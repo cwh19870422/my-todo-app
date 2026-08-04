@@ -27,8 +27,7 @@
     color: var(--label);
     display: flex; justify-content: center;
   }
-  #scale-outer { position: relative; }
-  .screen { width: 420px; padding: 20px 16px 50px; transform-origin: top center; }
+  .screen { width: 100%; max-width: 420px; padding: 20px 16px 50px; }
 
   .title-block { padding: 6px 4px 10px; }
   .title-block .date { font-size: 13px; color: var(--label2); }
@@ -221,8 +220,7 @@
 </head>
 <body>
 
-<div id="scale-outer">
-<div class="screen" id="app-root">
+<div class="screen">
   <div class="title-block">
     <div class="date" id="date-line"></div>
   </div>
@@ -287,7 +285,6 @@
   <div class="reminder-note">到期提醒會在此頁面開啟時彈出，需手動關閉</div>
   <div class="reminder-note" id="auto-backup-note">每天 19:00（頁面需開啟）會自動匯出一次備份</div>
   <div class="save-indicator" style="text-align:center; font-size:11px; color:var(--label2); margin-top:8px;" id="save-indicator"></div>
-</div>
 </div>
 
 <div class="modal-overlay" id="modal-overlay">
@@ -1011,35 +1008,10 @@ function checkAutoExport() {
 }
 setInterval(checkAutoExport, 60000);
 
-const scaleOuter = document.getElementById('scale-outer');
-const appRoot = document.getElementById('app-root');
-const BASE_WIDTH = 420;
-const MIN_SCALE = 0.8;
-const MAX_SCALE = 1.7;
-function updateScale() {
-  const availableWidth = window.innerWidth - 24;
-  const availableHeight = window.innerHeight - 24;
-  let scale = availableWidth / BASE_WIDTH;
-  const naturalHeight = appRoot.offsetHeight || 1;
-  const heightScale = availableHeight / naturalHeight;
-  scale = Math.min(scale, heightScale > 0 ? Math.max(heightScale, MIN_SCALE) : scale);
-  scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
-  appRoot.style.transform = `scale(${scale})`;
-  scaleOuter.style.width = (BASE_WIDTH * scale) + 'px';
-  scaleOuter.style.height = (naturalHeight * scale) + 'px';
-}
-window.addEventListener('resize', updateScale);
-if (window.ResizeObserver) {
-  new ResizeObserver(updateScale).observe(appRoot);
-} else {
-  setInterval(updateScale, 1000);
-}
-
 loadCategoryOrder();
 loadCollapsedGroups();
 loadTodos();
 checkAutoExport();
-updateScale();
 </script>
 
 </body>
