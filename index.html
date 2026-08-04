@@ -410,7 +410,13 @@ document.getElementById('new-due').addEventListener('click', presetDueNow);
 function loadTodos() {
   try {
     const raw = localStorage.getItem('todo-list');
-    if (raw) todos = JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const cleaned = Array.isArray(parsed) ? parsed.filter(t => t && typeof t === 'object' && t.id) : [];
+      const hadJunk = !Array.isArray(parsed) || cleaned.length !== parsed.length;
+      todos = cleaned;
+      if (hadJunk) saveTodos();
+    }
   } catch (e) { todos = []; }
   render();
 }
@@ -555,14 +561,14 @@ function commitCategoryReorder(newOrder) {
 
 function getGroups(filteredList) {
   const presentKeys = [];
-  todos.forEach(t => {
+  todos.filter(Boolean).forEach(t => {
     const key = groupKey(t.category);
     if (!presentKeys.includes(key)) presentKeys.push(key);
   });
   ensureCategoryOrder(presentKeys);
 
   const buckets = new Map();
-  filteredList.forEach(t => {
+  filteredList.filter(Boolean).forEach(t => {
     const key = groupKey(t.category);
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key).push(t);
@@ -581,7 +587,7 @@ function getGroups(filteredList) {
 }
 
 function renderCatDatalist() {
-  const cats = [...new Set(todos.map(t => t.category).filter(Boolean))];
+  const cats = [...new Set(todos.filter(Boolean).map(t => t.category).filter(Boolean))];
   catListEl.innerHTML = cats.map(c => `<option value="${c}"></option>`).join('');
 }
 
@@ -820,7 +826,7 @@ function onDragEnd() {
   todos = original.map(t => {
     if (groupKey(t.category) === key) {
       const id = newIds[ptr++];
-      return original.find(x => x.id === id);
+      return original.find(x => x.id === id) || t;
     }
     return t;
   });
@@ -925,7 +931,7 @@ setInterval(() => {
   const now = Date.now();
   let changed = false;
   todos.forEach(t => {
-    if (t.dueAt && !t.done && !t.reminded && t.dueAt <= now) {
+    if (t && t.dueAt && !t.done && !t.reminded && t.dueAt <= now) {
       t.reminded = true;
       changed = true;
       reminderQueue.push({ id: t.id, text: t.text, category: t.category, dueAt: t.dueAt });
