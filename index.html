@@ -412,7 +412,13 @@ function loadTodos() {
     const raw = localStorage.getItem('todo-list');
     if (raw) {
       const parsed = JSON.parse(raw);
-      const cleaned = Array.isArray(parsed) ? parsed.filter(t => t && typeof t === 'object' && t.id) : [];
+      const valid = Array.isArray(parsed) ? parsed.filter(t => t && typeof t === 'object' && t.id) : [];
+      const seenIds = new Set();
+      const cleaned = valid.filter(t => {
+        if (seenIds.has(t.id)) return false;
+        seenIds.add(t.id);
+        return true;
+      });
       const hadJunk = !Array.isArray(parsed) || cleaned.length !== parsed.length;
       todos = cleaned;
       if (hadJunk) saveTodos();
@@ -820,16 +826,16 @@ function onDragEnd() {
 
   const ul = dragEl.parentElement;
   const key = ul.dataset.category;
-  const newIds = [...ul.querySelectorAll('li.item[data-id]')].map(li => li.dataset.id);
-  const original = todos;
-  let ptr = 0;
-  todos = original.map(t => {
-    if (groupKey(t.category) === key) {
-      const id = newIds[ptr++];
-      return original.find(x => x.id === id) || t;
-    }
-    return t;
-  });
+  const newIds = [...new Set([...ul.querySelectorAll('li.item[data-id]')].map(li => li.dataset.id))];
+
+  const categoryItems = todos.filter(t => t && groupKey(t.category) === key);
+  const byId = new Map(categoryItems.map(t => [t.id, t]));
+  const reordered = newIds.map(id => byId.get(id)).filter(Boolean);
+
+  if (reordered.length === categoryItems.length) {
+    const otherItems = todos.filter(t => !t || groupKey(t.category) !== key);
+    todos = [...otherItems, ...reordered];
+  }
 
   dragEl = null;
   render();
