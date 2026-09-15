@@ -56,6 +56,12 @@
     border: none; outline: none; font-family: inherit; font-size: 14px; color: var(--label);
     background: transparent; flex: 1; padding: 0;
   }
+  .field-row textarea {
+    border: none; outline: none; font-family: inherit; font-size: 14px; color: var(--label);
+    background: transparent; flex: 1; padding: 6px 0; resize: none; overflow: hidden;
+    line-height: 1.4; min-height: 20px; max-height: 160px;
+  }
+  .field-row textarea::placeholder { color: #C7C7CC; }
   .field-row input::placeholder { color: #C7C7CC; }
   .field-label { font-size: 14px; color: var(--label); width: 60px; flex-shrink: 0; }
   .field-row input[type="datetime-local"] { text-align: right; color: var(--label2); font-size: 13px; }
@@ -81,6 +87,36 @@
   .more-options.open { display: block; }
 
   .toggle-row { display: flex; gap: 8px; padding: 8px 12px; }
+
+  .paste-zone {
+    margin: 8px 12px; padding: 12px; border: 1.5px dashed var(--line); border-radius: 10px;
+    text-align: center; font-size: 12px; color: var(--label2); cursor: text; position: relative;
+  }
+  .paste-zone:focus { outline: none; border-color: var(--blue); }
+  .paste-zone.has-image { border-style: solid; border-color: var(--sep); padding: 6px; text-align: left; }
+  .paste-preview-thumb { width: 100%; max-height: 140px; object-fit: cover; border-radius: 8px; display: block; }
+  .remove-image-btn {
+    position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(0,0,0,0.55); color: #fff; border: none; font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+
+  .meta-icon-btn {
+    border: none; background: var(--fill); color: var(--label2); width: 22px; height: 22px;
+    border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  }
+  .meta-icon-btn svg { width: 13px; height: 13px; }
+
+  .lightbox-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none;
+    align-items: center; justify-content: center; z-index: 1000; padding: 24px;
+  }
+  .lightbox-overlay.show { display: flex; }
+  .lightbox-overlay img { max-width: 92vw; max-height: 88vh; border-radius: 10px; }
+  .lightbox-close {
+    position: absolute; top: 18px; right: 18px; width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); color: #fff; border: none; font-size: 18px; cursor: pointer;
+  }
   .toggle-pill {
     display: flex; align-items: center; gap: 5px; border: none; font-family: inherit;
     font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 16px; cursor: pointer;
@@ -143,7 +179,7 @@
   .check.done svg { width: 13px; height: 13px; }
 
   .item-body { flex: 1; min-width: 0; padding-right: 58px; cursor: pointer; }
-  .item-text { font-size: 16px; line-height: 1.35; word-break: break-word; cursor: pointer; }
+  .item-text { font-size: 16px; line-height: 1.35; word-break: break-word; cursor: pointer; white-space: pre-wrap; }
   .item-text.done { text-decoration: line-through; color: var(--label2); }
   li.item.important .item-text { font-weight: 600; }
 
@@ -239,7 +275,7 @@
   <div class="card">
     <div class="field-group">
       <div class="field-row">
-        <input type="text" id="new-item" placeholder="新增待辦事項" style="flex:1;">
+        <textarea id="new-item" placeholder="新增待辦事項" rows="1"></textarea>
         <button type="button" class="add-inline-btn" id="add-btn" aria-label="加入">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         </button>
@@ -272,6 +308,11 @@
         <button type="button" class="toggle-pill pin" id="new-pin">📌 置頂</button>
         <button type="button" class="toggle-pill imp" id="new-imp">⭐ 重要</button>
       </div>
+      <div class="field-row">
+        <span class="field-label">備忘</span>
+        <textarea id="new-note" placeholder="輸入備忘內容（選填）" rows="1"></textarea>
+      </div>
+      <div class="paste-zone" id="new-image-zone" tabindex="0">點這裡後按 Ctrl+V 貼上圖片</div>
     </div>
   </div>
 
@@ -290,6 +331,20 @@
   <div class="reminder-note">到期提醒會在此頁面開啟時彈出，需手動關閉</div>
   <div class="reminder-note" id="auto-backup-note">每天 19:00（頁面需開啟）會自動匯出一次備份</div>
   <div class="save-indicator" style="text-align:center; font-size:11px; color:var(--label2); margin-top:8px;" id="save-indicator"></div>
+</div>
+
+<div class="lightbox-overlay" id="note-viewer-overlay">
+  <div class="modal-box" style="text-align:left; padding: 4px;">
+    <button class="modal-close" id="note-viewer-close" aria-label="關閉">✕</button>
+    <div class="modal-label" style="margin-top:16px;">備忘</div>
+    <div class="modal-meta" id="note-viewer-content" style="color: var(--label); font-size:14px; line-height:1.5; white-space: pre-wrap; text-align:left; max-height: 50vh; overflow-y:auto;"></div>
+    <button class="modal-btn" id="note-viewer-ok">知道了</button>
+  </div>
+</div>
+
+<div class="lightbox-overlay" id="lightbox-overlay">
+  <button class="lightbox-close" id="lightbox-close" aria-label="關閉">✕</button>
+  <img id="lightbox-img" src="" alt="">
 </div>
 
 <div class="modal-overlay" id="modal-overlay">
@@ -314,6 +369,8 @@ let filter = 'all';
 let newPinned = false;
 let newImportant = false;
 let editingId = null;
+let newImage = null;
+let editImageDraft = null;
 let saveTimeout = null;
 let reminderQueue = [];
 let modalShowing = false;
@@ -351,6 +408,12 @@ function repeatSvg() {
 }
 function gripSvg() {
   return '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="6" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg>';
+}
+function noteSvg() {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>';
+}
+function imageSvg() {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-4 4-3-3-6 6"/></svg>';
 }
 function chevronSvg() {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
@@ -404,6 +467,75 @@ function toDatetimeLocalValue(ts) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function uid() { return 't' + Date.now() + Math.random().toString(36).slice(2, 7); }
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function compressImage(dataUrl, maxDim, quality) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let width = img.width, height = img.height;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else { width = Math.round(width * maxDim / height); height = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+function renderNewImagePreview() {
+  const zone = document.getElementById('new-image-zone');
+  if (newImage) {
+    zone.classList.add('has-image');
+    zone.innerHTML = `<img class="paste-preview-thumb" src="${newImage}"><button type="button" class="remove-image-btn" id="new-image-remove">✕</button>`;
+    document.getElementById('new-image-remove').addEventListener('click', (e) => {
+      e.stopPropagation();
+      newImage = null;
+      renderNewImagePreview();
+    });
+  } else {
+    zone.classList.remove('has-image');
+    zone.textContent = '點這裡後按 Ctrl+V 貼上圖片';
+  }
+}
+
+document.addEventListener('paste', async (e) => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  let imageFile = null;
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      imageFile = item.getAsFile();
+      break;
+    }
+  }
+  if (!imageFile) return;
+  e.preventDefault();
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const compressed = await compressImage(ev.target.result, 640, 0.7);
+    if (!compressed) return;
+    const active = document.activeElement;
+    const editPanel = active ? active.closest('.edit-panel') : null;
+    if (editPanel && editingId) {
+      editImageDraft = compressed;
+      render();
+    } else {
+      newImage = compressed;
+      renderNewImagePreview();
+    }
+  };
+  reader.readAsDataURL(imageFile);
+});
+
 
 function presetDueNow() {
   const el = document.getElementById('new-due');
@@ -456,22 +588,28 @@ function addTodo() {
   const catInput = document.getElementById('new-cat');
   const dueInput = document.getElementById('new-due');
   const repeatInput = document.getElementById('new-repeat');
+  const noteInput = document.getElementById('new-note');
   const text = input.value.trim();
   if (!text) return;
   const category = catInput.value.trim();
   const dueAt = dueInput.value ? new Date(dueInput.value).getTime() : null;
   const repeat = repeatInput.value;
+  const note = noteInput.value.trim();
 
   todos.unshift({
     id: uid(), text, done: false, category: category || null,
-    dueAt, repeat, reminded: false, pinned: newPinned, important: newImportant, createdAt: Date.now()
+    dueAt, repeat, reminded: false, pinned: newPinned, important: newImportant,
+    image: newImage, note: note || null, createdAt: Date.now()
   });
 
   input.value = ''; catInput.value = ''; repeatInput.value = 'none';
-  dueInput.value = '';
+  dueInput.value = ''; noteInput.value = '';
+  autoResizeTextarea(input); autoResizeTextarea(noteInput);
   newPinned = false; newImportant = false;
+  newImage = null;
   document.getElementById('new-pin').classList.remove('active');
   document.getElementById('new-imp').classList.remove('active');
+  renderNewImagePreview();
 
   render(); saveTodos(); input.focus();
 }
@@ -515,8 +653,14 @@ function deleteTodo(id) { todos = todos.filter(x => x.id !== id); render(); save
 function togglePin(id) { const t = todos.find(x => x.id === id); if (t) t.pinned = !t.pinned; render(); saveTodos(); }
 function toggleImportant(id) { const t = todos.find(x => x.id === id); if (t) t.important = !t.important; render(); saveTodos(); }
 function clearDone() { todos = todos.filter(x => !x.done); render(); saveTodos(); }
-function startEdit(id) { editingId = id; render(); }
-function cancelEdit() { editingId = null; render(); }
+function startEdit(id) {
+  const t = todos.find(x => x.id === id);
+  editImageDraft = t ? (t.image || null) : null;
+  editingId = id;
+  render();
+}
+function cancelEdit() { editingId = null; editImageDraft = null; render(); }
+function removeEditImage() { editImageDraft = null; render(); }
 function saveEdit(id) {
   const t = todos.find(x => x.id === id);
   if (!t) return;
@@ -524,14 +668,18 @@ function saveEdit(id) {
   const catEl = document.getElementById('edit-cat-' + id);
   const dueEl = document.getElementById('edit-due-' + id);
   const repeatEl = document.getElementById('edit-repeat-' + id);
+  const noteEl = document.getElementById('edit-note-' + id);
   const newText = textEl.value.trim();
   if (!newText) { textEl.focus(); return; }
   t.text = newText;
   t.category = catEl.value.trim() || null;
   t.dueAt = dueEl.value ? new Date(dueEl.value).getTime() : null;
   t.repeat = repeatEl.value;
+  t.note = noteEl.value.trim() || null;
   t.reminded = false;
+  t.image = editImageDraft;
   editingId = null;
+  editImageDraft = null;
   render(); saveTodos();
 }
 
@@ -684,7 +832,7 @@ function render() {
         panel.className = 'edit-panel';
         panel.innerHTML = `
           <div class="edit-row">
-            <input type="text" id="edit-text-${t.id}" value="${t.text.replace(/"/g,'&quot;')}">
+            <textarea id="edit-text-${t.id}" rows="1" style="flex:1;">${escapeHtml(t.text)}</textarea>
           </div>
           <div class="edit-row">
             <input type="text" class="edit-cat" id="edit-cat-${t.id}" value="${t.category || ''}" placeholder="分類" maxlength="12">
@@ -698,6 +846,12 @@ function render() {
               <option value="monthly" ${t.repeat === 'monthly' ? 'selected' : ''}>每月</option>
             </select>
           </div>
+          <div class="edit-row">
+            <textarea id="edit-note-${t.id}" rows="1" placeholder="備忘內容（選填）" style="flex:1;">${escapeHtml(t.note || '')}</textarea>
+          </div>
+          <div class="paste-zone${editImageDraft ? ' has-image' : ''}" id="edit-image-zone-${t.id}" tabindex="0">
+            ${editImageDraft ? `<img class="paste-preview-thumb" src="${editImageDraft}"><button type="button" class="remove-image-btn" id="edit-image-remove-${t.id}">✕</button>` : '點這裡後按 Ctrl+V 貼上圖片'}
+          </div>
           <div class="edit-actions">
             <button class="save-btn" type="button">儲存</button>
             <button class="cancel-btn" type="button">取消</button>
@@ -705,8 +859,15 @@ function render() {
         `;
         panel.querySelector('.save-btn').addEventListener('click', () => saveEdit(t.id));
         panel.querySelector('.cancel-btn').addEventListener('click', cancelEdit);
+        const editImgRemoveBtn = panel.querySelector(`#edit-image-remove-${t.id}`);
+        if (editImgRemoveBtn) editImgRemoveBtn.addEventListener('click', (e) => { e.stopPropagation(); removeEditImage(); });
+        const editTextArea = panel.querySelector(`#edit-text-${t.id}`);
+        const editNoteArea = panel.querySelector(`#edit-note-${t.id}`);
+        editTextArea.addEventListener('input', () => autoResizeTextarea(editTextArea));
+        editNoteArea.addEventListener('input', () => autoResizeTextarea(editNoteArea));
         li.appendChild(panel);
         ul.appendChild(li);
+        requestAnimationFrame(() => { autoResizeTextarea(editTextArea); autoResizeTextarea(editNoteArea); });
         return;
       }
 
@@ -746,6 +907,24 @@ function render() {
         rep.innerHTML = repeatSvg() + '<span>' + REPEAT_LABELS[t.repeat] + '</span>';
         meta.appendChild(rep);
       }
+      if (t.note) {
+        const noteBtn = document.createElement('button');
+        noteBtn.type = 'button';
+        noteBtn.className = 'meta-icon-btn';
+        noteBtn.innerHTML = noteSvg();
+        noteBtn.title = '查看備忘';
+        noteBtn.addEventListener('click', (e) => { e.stopPropagation(); openNoteViewer(t.note); });
+        meta.appendChild(noteBtn);
+      }
+      if (t.image) {
+        const imgBtn = document.createElement('button');
+        imgBtn.type = 'button';
+        imgBtn.className = 'meta-icon-btn';
+        imgBtn.innerHTML = imageSvg();
+        imgBtn.title = '查看圖片';
+        imgBtn.addEventListener('click', (e) => { e.stopPropagation(); openLightbox(t.image); });
+        meta.appendChild(imgBtn);
+      }
       if (meta.childNodes.length) body.appendChild(meta);
       li.appendChild(body);
 
@@ -775,7 +954,12 @@ function render() {
 }
 
 document.getElementById('add-btn').addEventListener('click', addTodo);
-document.getElementById('new-item').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTodo(); });
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+}
+document.getElementById('new-item').addEventListener('input', (e) => autoResizeTextarea(e.target));
+document.getElementById('new-note').addEventListener('input', (e) => autoResizeTextarea(e.target));
 document.getElementById('new-pin').addEventListener('click', () => {
   newPinned = !newPinned;
   document.getElementById('new-pin').classList.toggle('active', newPinned);
@@ -834,12 +1018,14 @@ function onDragEnd() {
   const newIds = [...new Set([...ul.querySelectorAll('li.item[data-id]')].map(li => li.dataset.id))];
 
   const categoryItems = todos.filter(t => t && groupKey(t.category) === key);
+  const visibleIdSet = new Set(newIds);
+  const hiddenInCategory = categoryItems.filter(t => !visibleIdSet.has(t.id));
   const byId = new Map(categoryItems.map(t => [t.id, t]));
-  const reordered = newIds.map(id => byId.get(id)).filter(Boolean);
+  const reorderedVisible = newIds.map(id => byId.get(id)).filter(Boolean);
 
-  if (reordered.length === categoryItems.length) {
+  if (reorderedVisible.length === newIds.length) {
     const otherItems = todos.filter(t => !t || groupKey(t.category) !== key);
-    todos = [...otherItems, ...reordered];
+    todos = [...otherItems, ...reorderedVisible, ...hiddenInCategory];
   }
 
   dragEl = null;
@@ -886,6 +1072,39 @@ function onGroupDragEnd() {
   groupDragEl = null;
   render();
 }
+
+const lightboxOverlay = document.getElementById('lightbox-overlay');
+const lightboxImg = document.getElementById('lightbox-img');
+const lightboxClose = document.getElementById('lightbox-close');
+function openLightbox(src) {
+  lightboxImg.src = src;
+  lightboxOverlay.classList.add('show');
+}
+function closeLightbox() {
+  lightboxOverlay.classList.remove('show');
+  lightboxImg.src = '';
+}
+lightboxClose.addEventListener('click', closeLightbox);
+lightboxOverlay.addEventListener('click', (e) => {
+  if (e.target === lightboxOverlay) closeLightbox();
+});
+
+const noteViewerOverlay = document.getElementById('note-viewer-overlay');
+const noteViewerContent = document.getElementById('note-viewer-content');
+const noteViewerClose = document.getElementById('note-viewer-close');
+const noteViewerOk = document.getElementById('note-viewer-ok');
+function openNoteViewer(text) {
+  noteViewerContent.textContent = text;
+  noteViewerOverlay.classList.add('show');
+}
+function closeNoteViewer() {
+  noteViewerOverlay.classList.remove('show');
+}
+noteViewerClose.addEventListener('click', closeNoteViewer);
+noteViewerOk.addEventListener('click', closeNoteViewer);
+noteViewerOverlay.addEventListener('click', (e) => {
+  if (e.target === noteViewerOverlay) closeNoteViewer();
+});
 
 function showNextReminder() {
   if (modalShowing || reminderQueue.length === 0) return;
