@@ -100,6 +100,23 @@
     background: rgba(0,0,0,0.55); color: #fff; border: none; font-size: 12px; cursor: pointer;
     display: flex; align-items: center; justify-content: center; padding: 0;
   }
+  .paste-zone.drag-over { border-color: var(--blue); background: rgba(0,122,255,0.06); }
+  .multi-thumbs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .multi-thumb-wrap { position: relative; width: 64px; height: 64px; }
+  .multi-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; display: block; }
+  .multi-thumb-wrap .remove-image-btn { top: -6px; right: -6px; width: 18px; height: 18px; font-size: 10px; }
+
+  .stock-card { background: var(--card); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
+  .stock-images { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .stock-img-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; cursor: pointer; }
+  .stock-text { font-size: 15px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; margin-bottom: 6px; }
+  .stock-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .stock-tag { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 10px; background: var(--fill); color: var(--label2); }
+  .stock-tag.vendor { background: rgba(0,122,255,0.12); color: var(--blue); }
+  .stock-tag.remind { background: rgba(255,149,0,0.12); color: var(--orange); }
+  .stock-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .stock-delete-btn { background: none; border: none; color: #C7C7CC; cursor: pointer; display: flex; padding: 0; }
+  .stock-delete-btn svg { width: 18px; height: 18px; }
 
   .meta-icon-btn {
     border: none; background: var(--fill); color: var(--label2); width: 22px; height: 22px;
@@ -266,71 +283,97 @@
     <div class="date" id="date-line"></div>
   </div>
 
-  <div class="segmented">
-    <button class="filter-btn active" data-filter="all">全部</button>
-    <button class="filter-btn" data-filter="active">進行中</button>
-    <button class="filter-btn" data-filter="done">已完成</button>
+  <div class="segmented" id="section-tabs">
+    <button class="section-btn active" data-section="todo">TODO</button>
+    <button class="section-btn" data-section="stock">缺貨區</button>
   </div>
 
-  <div class="card">
-    <div class="field-group">
-      <div class="field-row">
-        <textarea id="new-item" placeholder="新增待辦事項" rows="1"></textarea>
-        <button type="button" class="add-inline-btn" id="add-btn" aria-label="加入">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        </button>
+  <div id="todo-section">
+    <div class="card">
+      <div class="field-group">
+        <div class="field-row">
+          <textarea id="new-item" placeholder="新增待辦事項" rows="1"></textarea>
+          <button type="button" class="add-inline-btn" id="add-btn" aria-label="加入">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="field-row">
+          <span class="field-label">分類</span>
+          <input type="text" id="new-cat" placeholder="例如：工作" maxlength="12" list="cat-list">
+          <datalist id="cat-list"></datalist>
+        </div>
       </div>
-      <div class="field-row">
-        <span class="field-label">分類</span>
-        <input type="text" id="new-cat" placeholder="例如：工作" maxlength="12" list="cat-list">
-        <datalist id="cat-list"></datalist>
+      <button type="button" class="more-toggle" id="more-toggle">
+        <span>更多選項</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="more-options" id="more-options">
+        <div class="field-row">
+          <span class="field-label">到期時間</span>
+          <input type="datetime-local" id="new-due">
+        </div>
+        <div class="field-row">
+          <span class="field-label">重複</span>
+          <select id="new-repeat">
+            <option value="none">不重複</option>
+            <option value="daily">每天</option>
+            <option value="weekly">每週</option>
+            <option value="monthly">每月</option>
+          </select>
+        </div>
+        <div class="toggle-row">
+          <button type="button" class="toggle-pill pin" id="new-pin">📌 置頂</button>
+          <button type="button" class="toggle-pill imp" id="new-imp">⭐ 重要</button>
+        </div>
+        <div class="field-row">
+          <span class="field-label">備忘</span>
+          <textarea id="new-note" placeholder="輸入備忘內容（選填）" rows="1"></textarea>
+        </div>
+        <div class="paste-zone" id="new-image-zone" tabindex="0">點這裡後按 Ctrl+V 貼上圖片</div>
       </div>
     </div>
-    <button type="button" class="more-toggle" id="more-toggle">
-      <span>更多選項</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div class="more-options" id="more-options">
-      <div class="field-row">
-        <span class="field-label">到期時間</span>
-        <input type="datetime-local" id="new-due">
-      </div>
-      <div class="field-row">
-        <span class="field-label">重複</span>
-        <select id="new-repeat">
-          <option value="none">不重複</option>
-          <option value="daily">每天</option>
-          <option value="weekly">每週</option>
-          <option value="monthly">每月</option>
-        </select>
-      </div>
-      <div class="toggle-row">
-        <button type="button" class="toggle-pill pin" id="new-pin">📌 置頂</button>
-        <button type="button" class="toggle-pill imp" id="new-imp">⭐ 重要</button>
-      </div>
-      <div class="field-row">
-        <span class="field-label">備忘</span>
-        <textarea id="new-note" placeholder="輸入備忘內容（選填）" rows="1"></textarea>
-      </div>
-      <div class="paste-zone" id="new-image-zone" tabindex="0">點這裡後按 Ctrl+V 貼上圖片</div>
+
+    <div id="groups"></div>
+    <div id="empty" class="empty-state" style="display:none;">目前沒有待辦事項</div>
+
+    <div class="footer-row">
+      <span id="remaining-count">剩餘 0 項</span>
+      <button id="clear-done">清除已完成</button>
     </div>
+    <div class="footer-row" style="margin-top:2px;">
+      <button id="export-backup-btn" style="color: var(--blue);">匯出備份</button>
+      <button id="import-backup-btn" style="color: var(--blue);">匯入還原</button>
+    </div>
+    <input type="file" id="import-file-input" accept="application/json" style="display:none;">
+    <div class="reminder-note">到期提醒會在此頁面開啟時彈出，需手動關閉</div>
+    <div class="reminder-note" id="auto-backup-note">每天 19:00（頁面需開啟）會自動匯出一次備份</div>
+    <div class="save-indicator" style="text-align:center; font-size:11px; color:var(--label2); margin-top:8px;" id="save-indicator"></div>
   </div>
 
-  <div id="groups"></div>
-  <div id="empty" class="empty-state" style="display:none;">目前沒有待辦事項</div>
+  <div id="stock-section" style="display:none;">
+    <div class="card">
+      <div class="field-group">
+        <div class="field-row">
+          <textarea id="stock-new-text" placeholder="缺貨品項說明" rows="1"></textarea>
+          <button type="button" class="add-inline-btn" id="stock-add-btn" aria-label="加入">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="field-row">
+          <span class="field-label">廠商</span>
+          <input type="text" id="stock-new-vendor" placeholder="例如：OO貿易" maxlength="24">
+        </div>
+        <div class="field-row">
+          <span class="field-label">提醒</span>
+          <input type="date" id="stock-new-remind">
+        </div>
+      </div>
+      <div class="paste-zone" id="stock-new-image-zone" tabindex="0">點這裡按 Ctrl+V 貼上圖片，或把圖片拖進來（可多張）</div>
+    </div>
 
-  <div class="footer-row">
-    <span id="remaining-count">剩餘 0 項</span>
-    <button id="clear-done">清除已完成</button>
+    <div id="stock-list"></div>
+    <div id="stock-empty" class="empty-state" style="display:none;">目前沒有缺貨項目</div>
   </div>
-  <div class="footer-row" style="margin-top:2px;">
-    <button id="export-backup-btn" style="color: var(--blue);">匯出備份</button>
-    <button id="import-backup-btn" style="color: var(--blue);">匯入還原</button>
-  </div>
-  <input type="file" id="import-file-input" accept="application/json" style="display:none;">
-  <div class="reminder-note">到期提醒會在此頁面開啟時彈出，需手動關閉</div>
-  <div class="reminder-note" id="auto-backup-note">每天 19:00（頁面需開啟）會自動匯出一次備份</div>
-  <div class="save-indicator" style="text-align:center; font-size:11px; color:var(--label2); margin-top:8px;" id="save-indicator"></div>
 </div>
 
 <div class="lightbox-overlay" id="note-viewer-overlay">
@@ -363,9 +406,46 @@
   </div>
 </div>
 
+<script type="module">
+// ===== Firebase 設定：把 Firebase 後台給你的 firebaseConfig 內容貼到這裡 =====
+const firebaseConfig = {
+  apiKey: "AIzaSyDTRaRYf3ghx7o_CV0VmvREbFwgX5g3Xe8",
+  authDomain: "how-todo.firebaseapp.com",
+  projectId: "how-todo",
+  storageBucket: "how-todo.firebasestorage.app",
+  messagingSenderId: "400375614459",
+  appId: "1:400375614459:web:4e330725b810be174e595e"
+};
+// ===========================================================================
+const configured = !String(firebaseConfig.apiKey).startsWith('YOUR_');
+if (configured) {
+  try {
+    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
+    const fs = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js');
+    const app = initializeApp(firebaseConfig);
+    let db;
+    try {
+      db = fs.initializeFirestore(app, { localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }) });
+    } catch (e) { db = fs.getFirestore(app); }
+    window.FBS = {
+      listen(col, cb, onErr) {
+        return fs.onSnapshot(fs.collection(db, col), snap => cb(snap.docs.map(d => ({ ...d.data(), id: d.id }))), e => onErr && onErr(e));
+      },
+      async commit(col, upserts, deleteIds) {
+        let batch = fs.writeBatch(db), n = 0;
+        for (const u of upserts) { batch.set(fs.doc(db, col, u.id), u); if (++n >= 400) { await batch.commit(); batch = fs.writeBatch(db); n = 0; } }
+        for (const id of deleteIds) { batch.delete(fs.doc(db, col, id)); if (++n >= 400) { await batch.commit(); batch = fs.writeBatch(db); n = 0; } }
+        if (n) await batch.commit();
+      }
+    };
+  } catch (e) { console.error('Firebase 載入失敗', e); }
+}
+window.FBS_STATE = configured ? 'loaded' : 'unconfigured';
+window.dispatchEvent(new Event('fbs-ready'));
+</script>
+
 <script>
 let todos = [];
-let filter = 'all';
 let newPinned = false;
 let newImportant = false;
 let editingId = null;
@@ -525,7 +605,11 @@ document.addEventListener('paste', async (e) => {
     if (!compressed) return;
     const active = document.activeElement;
     const editPanel = active ? active.closest('.edit-panel') : null;
-    if (editPanel && editingId) {
+    const stockZone = active ? active.closest('#stock-new-image-zone') : null;
+    if (stockZone) {
+      stockNewImages.push(compressed);
+      renderStockNewImages();
+    } else if (editPanel && editingId) {
       editImageDraft = compressed;
       render();
     } else {
@@ -536,6 +620,35 @@ document.addEventListener('paste', async (e) => {
   reader.readAsDataURL(imageFile);
 });
 
+function wireImageDropZone(zoneEl, onImageDataUrl) {
+  if (!zoneEl) return;
+  zoneEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    zoneEl.classList.add('drag-over');
+  });
+  zoneEl.addEventListener('dragleave', () => {
+    zoneEl.classList.remove('drag-over');
+  });
+  zoneEl.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    zoneEl.classList.remove('drag-over');
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || !files.length) return;
+    for (const file of files) {
+      if (!file.type || !file.type.startsWith('image/')) continue;
+      const dataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+      if (!dataUrl) continue;
+      const compressed = await compressImage(dataUrl, 640, 0.7);
+      if (compressed) onImageDataUrl(compressed);
+    }
+  });
+}
+
 
 function presetDueNow() {
   const el = document.getElementById('new-due');
@@ -544,44 +657,96 @@ function presetDueNow() {
 document.getElementById('new-due').addEventListener('focus', presetDueNow);
 document.getElementById('new-due').addEventListener('click', presetDueNow);
 
-function loadTodos() {
-  try {
-    const raw = localStorage.getItem('todo-list');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const valid = Array.isArray(parsed) ? parsed.filter(t => t && typeof t === 'object' && t.id) : [];
-      const seenIds = new Set();
-      const cleaned = valid.filter(t => {
-        if (seenIds.has(t.id)) return false;
-        seenIds.add(t.id);
-        return true;
-      });
-      const hadJunk = !Array.isArray(parsed) || cleaned.length !== parsed.length;
-      todos = cleaned;
-      if (hadJunk) saveTodos();
-    }
-  } catch (e) { todos = []; }
-  render();
+const cloud = {
+  todos: { col: 'todos', last: new Map(), dirty: false, timer: null, ver: 0, loaded: false },
+  stock: { col: 'stock', last: new Map(), dirty: false, timer: null, ver: 0, loaded: false }
+};
+function stable(o) {
+  if (Array.isArray(o)) return '[' + o.map(stable).join(',') + ']';
+  if (o && typeof o === 'object') return '{' + Object.keys(o).sort().map(k => JSON.stringify(k) + ':' + stable(o[k])).join(',') + '}';
+  return JSON.stringify(o === undefined ? null : o);
 }
-function saveTodos() {
-  clearTimeout(saveTimeout);
-  saveIndicator.textContent = '儲存中...';
-  saveTimeout = setTimeout(() => {
+function toCloudDocs(arr) {
+  const docs = [];
+  const seen = new Set();
+  arr.forEach(it => {
+    if (!it || !it.id || seen.has(it.id)) return;
+    seen.add(it.id);
+    const d = JSON.parse(JSON.stringify(it));
+    d.order = docs.length;
+    docs.push(d);
+  });
+  return docs;
+}
+function setSync(text) {
+  saveIndicator.textContent = text;
+  if (text === '已同步') setTimeout(() => { if (saveIndicator.textContent === '已同步') saveIndicator.textContent = ''; }, 1200);
+}
+function pushCloud(kind, getArr) {
+  const st = cloud[kind];
+  st.dirty = true; st.ver++;
+  setSync('同步中...');
+  clearTimeout(st.timer);
+  st.timer = setTimeout(async () => {
+    if (!window.FBS) { setSync('尚未連上雲端'); return; }
+    const v = st.ver;
+    const docs = toCloudDocs(getArr());
+    const ups = docs.filter(d => st.last.get(d.id) !== stable(d));
+    const ids = new Set(docs.map(d => d.id));
+    const dels = [...st.last.keys()].filter(id => !ids.has(id));
     try {
-      localStorage.setItem('todo-list', JSON.stringify(todos));
-      saveIndicator.textContent = '已儲存';
-      setTimeout(() => { saveIndicator.textContent = ''; }, 1200);
-    } catch (e) { saveIndicator.textContent = '儲存失敗'; }
-  }, 200);
+      if (ups.length || dels.length) await window.FBS.commit(st.col, ups, dels);
+      ups.forEach(d => st.last.set(d.id, stable(d)));
+      dels.forEach(id => st.last.delete(id));
+      if (st.ver === v) st.dirty = false;
+      setSync('已同步');
+    } catch (e) { console.error(e); setSync('同步失敗（資料可能過大或網路問題）'); }
+  }, 100);
 }
-function flushSaveTodos() {
-  clearTimeout(saveTimeout);
-  try { localStorage.setItem('todo-list', JSON.stringify(todos)); } catch (e) {}
+function applyRemote(kind, list) {
+  const st = cloud[kind];
+  const first = !st.loaded;
+  st.loaded = true;
+  st.last = new Map(list.map(d => [d.id, stable(d)]));
+  const skip = st.dirty || (kind === 'todos' && (typeof dragEl !== 'undefined' && dragEl || editingId));
+  if (!skip) {
+    const arr = list.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+    if (kind === 'todos') { todos = arr; render(); } else { stockItems = arr; renderStock(); }
+  }
+  if (first && cloud.todos.loaded && cloud.stock.loaded) maybeMigrate();
 }
-window.addEventListener('pagehide', flushSaveTodos);
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') flushSaveTodos();
-});
+function maybeMigrate() {
+  let flag = null;
+  try { flag = localStorage.getItem('cloud-migrated'); } catch (e) {}
+  if (flag) return;
+  let oldTodos = [], oldStock = [];
+  try { oldTodos = (JSON.parse(localStorage.getItem('todo-list') || '[]') || []).filter(t => t && t.id); } catch (e) {}
+  try { oldStock = (JSON.parse(localStorage.getItem('stock-list') || '[]') || []).filter(t => t && t.id); } catch (e) {}
+  if (!oldTodos.length && !oldStock.length) return;
+  const ok = confirm(`偵測到這台裝置上有舊資料（待辦 ${oldTodos.length} 筆、缺貨 ${oldStock.length} 筆），要上傳到雲端嗎？`);
+  try { localStorage.setItem('cloud-migrated', ok ? 'done' : 'declined'); } catch (e) {}
+  if (!ok) return;
+  const haveT = new Set(todos.map(t => t.id)), haveS = new Set(stockItems.map(t => t.id));
+  todos = [...todos, ...oldTodos.filter(t => !haveT.has(t.id))];
+  stockItems = [...stockItems, ...oldStock.filter(t => !haveS.has(t.id))];
+  render(); renderStock();
+  saveTodos(); saveStock();
+}
+function loadTodos() { render(); }
+function saveTodos() { pushCloud('todos', () => todos); }
+function flushSaveTodos() {}
+
+function startCloud() {
+  if (!window.FBS) {
+    setSync(window.FBS_STATE === 'unconfigured' ? '尚未設定 Firebase（請看說明）' : '無法載入 Firebase，請檢查網路');
+    return;
+  }
+  setSync('同步中...');
+  const onErr = (e) => { console.error(e); setSync('同步失敗：' + (e && e.code || '')); };
+  window.FBS.listen('todos', l => { applyRemote('todos', l); if (!cloud.todos.dirty) setSync('已同步'); }, onErr);
+  window.FBS.listen('stock', l => { applyRemote('stock', l); }, onErr);
+}
+
 
 function addTodo() {
   const input = document.getElementById('new-item');
@@ -753,9 +918,7 @@ function renderCatDatalist() {
 function render() {
   renderCatDatalist();
   const filteredAll = todos.filter(t => {
-    if (filter === 'active' && t.done) return false;
-    if (filter === 'done' && !t.done) return false;
-    if (filter === 'all' && t.done) {
+    if (t.done) {
       const completedAt = t.completedAt || 0;
       if (Date.now() - completedAt > 3000) return false;
     }
@@ -871,11 +1034,9 @@ function render() {
         return;
       }
 
-      const canDrag = filter === 'all';
       const handle = document.createElement('div');
-      handle.className = 'drag-handle' + (canDrag ? '' : ' disabled');
+      handle.className = 'drag-handle';
       handle.innerHTML = gripSvg();
-      if (!canDrag) handle.title = '在「全部」檢視下才能拖曳排序';
       li.appendChild(handle);
 
       const check = document.createElement('div');
@@ -970,12 +1131,13 @@ document.getElementById('new-imp').addEventListener('click', () => {
 });
 document.getElementById('clear-done').addEventListener('click', clearDone);
 
-document.querySelectorAll('.filter-btn').forEach(btn => {
+document.querySelectorAll('.section-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.section-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    filter = btn.dataset.filter;
-    render();
+    const section = btn.dataset.section;
+    document.getElementById('todo-section').style.display = section === 'todo' ? '' : 'none';
+    document.getElementById('stock-section').style.display = section === 'stock' ? '' : 'none';
   });
 });
 
@@ -1183,10 +1345,11 @@ function getBackupData() {
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
-    todoList: localStorage.getItem('todo-list'),
+    todoList: JSON.stringify(todos),
     collapsedGroups: localStorage.getItem('todo-collapsed-groups'),
     categoryOrder: localStorage.getItem('todo-category-order'),
-    categoryOrderCustomized: localStorage.getItem('todo-category-order-customized')
+    categoryOrderCustomized: localStorage.getItem('todo-category-order-customized'),
+    stockList: JSON.stringify(stockItems)
   };
 }
 function exportBackup() {
@@ -1208,13 +1371,19 @@ function importBackupFile(file) {
   reader.onload = (e) => {
     try {
       const data = JSON.parse(e.target.result);
-      if (typeof data.todoList === 'string') localStorage.setItem('todo-list', data.todoList);
+      if (!confirm('還原會用備份檔覆蓋目前雲端上的資料，確定嗎？')) return;
+      const okList = x => { try { const a = JSON.parse(x); return Array.isArray(a) ? a.filter(t => t && typeof t === 'object' && t.id) : null; } catch (e) { return null; } };
+      const tl = typeof data.todoList === 'string' ? okList(data.todoList) : null;
+      const sl = typeof data.stockList === 'string' ? okList(data.stockList) : null;
+      if (tl) todos = tl;
+      if (sl) stockItems = sl;
       if (typeof data.collapsedGroups === 'string') localStorage.setItem('todo-collapsed-groups', data.collapsedGroups);
       if (typeof data.categoryOrder === 'string') localStorage.setItem('todo-category-order', data.categoryOrder);
       if (typeof data.categoryOrderCustomized === 'string') localStorage.setItem('todo-category-order-customized', data.categoryOrderCustomized);
       loadCategoryOrder();
       loadCollapsedGroups();
-      loadTodos();
+      render(); renderStock();
+      saveTodos(); saveStock();
       alert('備份還原成功！');
     } catch (err) {
       alert('還原失敗，檔案格式不正確');
@@ -1244,10 +1413,140 @@ function checkAutoExport() {
 }
 setInterval(checkAutoExport, 60000);
 
+let stockItems = [];
+let stockNewImages = [];
+
+function loadStock() { renderStock(); }
+function saveStock() { pushCloud('stock', () => stockItems); }
+
+function renderStockNewImages() {
+  const zone = document.getElementById('stock-new-image-zone');
+  if (stockNewImages.length) {
+    zone.classList.add('has-image');
+    const thumbs = stockNewImages.map((img, idx) => `
+      <div class="multi-thumb-wrap">
+        <img src="${img}">
+        <button type="button" class="remove-image-btn" data-idx="${idx}">✕</button>
+      </div>`).join('');
+    zone.innerHTML = `<div class="multi-thumbs">${thumbs}</div>`;
+    zone.querySelectorAll('.remove-image-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        stockNewImages.splice(parseInt(btn.dataset.idx, 10), 1);
+        renderStockNewImages();
+      });
+    });
+  } else {
+    zone.classList.remove('has-image');
+    zone.textContent = '點這裡按 Ctrl+V 貼上圖片，或把圖片拖進來（可多張）';
+  }
+}
+wireImageDropZone(document.getElementById('stock-new-image-zone'), (dataUrl) => {
+  stockNewImages.push(dataUrl);
+  renderStockNewImages();
+});
+
+function addStockItem() {
+  const textInput = document.getElementById('stock-new-text');
+  const vendorInput = document.getElementById('stock-new-vendor');
+  const remindInput = document.getElementById('stock-new-remind');
+  const text = textInput.value.trim();
+  const vendor = vendorInput.value.trim();
+  if (!text && !vendor && !stockNewImages.length) return;
+  if (stockNewImages.reduce((n, x) => n + x.length, 0) > 850000) { alert('圖片總量太大（雲端單筆上限約 1MB），請減少幾張圖片'); return; }
+
+  stockItems.unshift({
+    id: uid(), text, vendor: vendor || null,
+    remindAt: remindInput.value || null,
+    images: stockNewImages.slice(), createdAt: Date.now()
+  });
+
+  textInput.value = ''; vendorInput.value = ''; remindInput.value = '';
+  autoResizeTextarea(textInput);
+  stockNewImages = [];
+  renderStockNewImages();
+  renderStock(); saveStock();
+}
+function deleteStockItem(id) {
+  stockItems = stockItems.filter(s => s.id !== id);
+  renderStock(); saveStock();
+}
+
+function renderStock() {
+  const listEl = document.getElementById('stock-list');
+  const emptyEl2 = document.getElementById('stock-empty');
+  listEl.innerHTML = '';
+  emptyEl2.style.display = stockItems.length === 0 ? 'block' : 'none';
+
+  stockItems.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'stock-card';
+
+    if (s.images && s.images.length) {
+      const imgsWrap = document.createElement('div');
+      imgsWrap.className = 'stock-images';
+      s.images.forEach(src => {
+        const img = document.createElement('img');
+        img.className = 'stock-img-thumb';
+        img.src = src;
+        img.addEventListener('click', () => openLightbox(src));
+        imgsWrap.appendChild(img);
+      });
+      card.appendChild(imgsWrap);
+    }
+
+    if (s.text) {
+      const textEl = document.createElement('div');
+      textEl.className = 'stock-text';
+      textEl.textContent = s.text;
+      card.appendChild(textEl);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'stock-meta';
+    if (s.vendor) {
+      const t = document.createElement('span');
+      t.className = 'stock-tag vendor';
+      t.textContent = '廠商 · ' + s.vendor;
+      meta.appendChild(t);
+    }
+    if (s.remindAt) {
+      const t = document.createElement('span');
+      t.className = 'stock-tag remind';
+      t.textContent = '提醒 · ' + s.remindAt;
+      meta.appendChild(t);
+    }
+    if (meta.childNodes.length) card.appendChild(meta);
+
+    const bottom = document.createElement('div');
+    bottom.className = 'stock-bottom';
+    const dateLabel = document.createElement('span');
+    dateLabel.style.fontSize = '11px';
+    dateLabel.style.color = 'var(--label2)';
+    const d = new Date(s.createdAt);
+    dateLabel.textContent = `${d.getMonth()+1}/${d.getDate()} 新增`;
+    bottom.appendChild(dateLabel);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'stock-delete-btn';
+    delBtn.innerHTML = trashSvg();
+    delBtn.title = '刪除（叫完貨後可刪除）';
+    delBtn.addEventListener('click', () => deleteStockItem(s.id));
+    bottom.appendChild(delBtn);
+    card.appendChild(bottom);
+
+    listEl.appendChild(card);
+  });
+}
+
+document.getElementById('stock-add-btn').addEventListener('click', addStockItem);
+document.getElementById('stock-new-text').addEventListener('input', (e) => autoResizeTextarea(e.target));
+
 loadCategoryOrder();
 loadCollapsedGroups();
 loadTodos();
+loadStock();
 checkAutoExport();
+if (window.FBS_STATE) startCloud(); else window.addEventListener('fbs-ready', startCloud, { once: true });
 </script>
 
 </body>
