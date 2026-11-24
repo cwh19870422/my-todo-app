@@ -114,6 +114,17 @@
   .stock-tag { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 10px; background: var(--fill); color: var(--label2); }
   .stock-tag.vendor { background: rgba(0,122,255,0.12); color: var(--blue); }
   .stock-tag.remind { background: rgba(255,149,0,0.12); color: var(--orange); }
+  .stock-tag.cat { background: rgba(52,199,89,0.14); color: #248A3D; }
+  .stock-toolbar { margin: 4px 0 10px; }
+  .stock-views { display: flex; background: var(--fill); border-radius: 9px; padding: 2px; margin-bottom: 8px; }
+  .stock-view-btn { flex: 1; border: none; background: transparent; padding: 6px 0; font-size: 13px; font-weight: 600; color: var(--label2); border-radius: 7px; cursor: pointer; font-family: inherit; }
+  .stock-view-btn.active { background: var(--card); color: #000; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+  .stock-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .stock-chip { border: none; background: var(--card); color: var(--label2); font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 14px; cursor: pointer; font-family: inherit; }
+  .stock-chip.active { background: var(--blue); color: #fff; }
+  .stock-group-head { display: flex; align-items: center; justify-content: space-between; margin: 14px 4px 8px; }
+  .stock-group-name { font-size: 13px; font-weight: 700; color: var(--label2); }
+  .stock-copy-btn { border: none; background: rgba(0,122,255,0.12); color: var(--blue); font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 12px; cursor: pointer; font-family: inherit; }
   .stock-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
   .stock-delete-btn { background: none; border: none; color: #C7C7CC; cursor: pointer; display: flex; padding: 0; }
   .stock-delete-btn svg { width: 18px; height: 18px; }
@@ -360,6 +371,11 @@
           </button>
         </div>
         <div class="field-row">
+          <span class="field-label">分類</span>
+          <input type="text" id="stock-new-cat" placeholder="例如：美髮" maxlength="12" list="stock-cat-list">
+          <datalist id="stock-cat-list"></datalist>
+        </div>
+        <div class="field-row">
           <span class="field-label">廠商</span>
           <input type="text" id="stock-new-vendor" placeholder="例如：OO貿易" maxlength="24">
         </div>
@@ -371,6 +387,14 @@
       <div class="paste-zone" id="stock-new-image-zone" tabindex="0">點這裡按 Ctrl+V 貼上圖片，或把圖片拖進來（可多張）</div>
     </div>
 
+    <div class="stock-toolbar">
+      <div class="stock-views">
+        <button type="button" class="stock-view-btn" data-view="flat">全部</button>
+        <button type="button" class="stock-view-btn" data-view="cat">依分類</button>
+        <button type="button" class="stock-view-btn" data-view="vendor">依廠商</button>
+      </div>
+      <div class="stock-chips" id="stock-chips"></div>
+    </div>
     <div id="stock-list"></div>
     <div id="stock-empty" class="empty-state" style="display:none;">目前沒有缺貨項目</div>
   </div>
@@ -1449,6 +1473,7 @@ wireImageDropZone(document.getElementById('stock-new-image-zone'), (dataUrl) => 
 function addStockItem() {
   const textInput = document.getElementById('stock-new-text');
   const vendorInput = document.getElementById('stock-new-vendor');
+  const catInput = document.getElementById('stock-new-cat');
   const remindInput = document.getElementById('stock-new-remind');
   const text = textInput.value.trim();
   const vendor = vendorInput.value.trim();
@@ -1456,12 +1481,13 @@ function addStockItem() {
   if (stockNewImages.reduce((n, x) => n + x.length, 0) > 850000) { alert('圖片總量太大（雲端單筆上限約 1MB），請減少幾張圖片'); return; }
 
   stockItems.unshift({
-    id: uid(), text, vendor: vendor || null,
+    id: uid(), text, vendor: vendor || null, category: catInput.value.trim() || null,
     remindAt: remindInput.value || null,
     images: stockNewImages.slice(), createdAt: Date.now()
   });
 
   textInput.value = ''; vendorInput.value = ''; remindInput.value = '';
+  // 分類保留，方便連續新增同一類
   autoResizeTextarea(textInput);
   stockNewImages = [];
   renderStockNewImages();
@@ -1472,71 +1498,145 @@ function deleteStockItem(id) {
   renderStock(); saveStock();
 }
 
+let stockView = 'flat';
+let stockFilterCat = null;
+try { const v = localStorage.getItem('stock-view'); if (['flat','cat','vendor'].includes(v)) stockView = v; } catch (e) {}
+
+function copyText(text, btn) {
+  const done = () => { const o = btn.textContent; btn.textContent = '已複製 ✓'; setTimeout(() => { btn.textContent = o; }, 1400); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  } else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) { alert('複製失敗，請手動複製'); }
+  document.body.removeChild(ta);
+}
+function buildOrderText(title, items) {
+  const lines = items.map((s, i) => `${i + 1}. ${s.text || '（見圖片）'}${s.category ? '（' + s.category + '）' : ''}`);
+  return `【${title}】缺貨叫貨\n${lines.join('\n')}`;
+}
+
+function makeStockCard(s) {
+  const card = document.createElement('div');
+  card.className = 'stock-card';
+
+  if (s.images && s.images.length) {
+    const imgsWrap = document.createElement('div');
+    imgsWrap.className = 'stock-images';
+    s.images.forEach(src => {
+      const img = document.createElement('img');
+      img.className = 'stock-img-thumb';
+      img.src = src;
+      img.addEventListener('click', () => openLightbox(src));
+      imgsWrap.appendChild(img);
+    });
+    card.appendChild(imgsWrap);
+  }
+  if (s.text) {
+    const textEl = document.createElement('div');
+    textEl.className = 'stock-text';
+    textEl.textContent = s.text;
+    card.appendChild(textEl);
+  }
+  const meta = document.createElement('div');
+  meta.className = 'stock-meta';
+  const addTag = (cls, txt) => { const t = document.createElement('span'); t.className = 'stock-tag ' + cls; t.textContent = txt; meta.appendChild(t); };
+  if (s.category) addTag('cat', '分類 · ' + s.category);
+  if (s.vendor) addTag('vendor', '廠商 · ' + s.vendor);
+  if (s.remindAt) {
+    const overdue = s.remindAt <= formatDateForFilename(new Date());
+    addTag('remind', (overdue ? '⏰ 該處理了 · ' : '提醒 · ') + s.remindAt);
+  }
+  if (meta.childNodes.length) card.appendChild(meta);
+
+  const bottom = document.createElement('div');
+  bottom.className = 'stock-bottom';
+  const dateLabel = document.createElement('span');
+  dateLabel.style.fontSize = '11px';
+  dateLabel.style.color = 'var(--label2)';
+  const d = new Date(s.createdAt);
+  dateLabel.textContent = `${d.getMonth()+1}/${d.getDate()} 新增`;
+  bottom.appendChild(dateLabel);
+  const delBtn = document.createElement('button');
+  delBtn.className = 'stock-delete-btn';
+  delBtn.innerHTML = trashSvg();
+  delBtn.title = '刪除（叫完貨後可刪除）';
+  delBtn.addEventListener('click', () => deleteStockItem(s.id));
+  bottom.appendChild(delBtn);
+  card.appendChild(bottom);
+  return card;
+}
+
 function renderStock() {
   const listEl = document.getElementById('stock-list');
   const emptyEl2 = document.getElementById('stock-empty');
+  const chipsEl = document.getElementById('stock-chips');
   listEl.innerHTML = '';
-  emptyEl2.style.display = stockItems.length === 0 ? 'block' : 'none';
 
-  stockItems.forEach(s => {
-    const card = document.createElement('div');
-    card.className = 'stock-card';
+  // 分類建議清單
+  const cats = [...new Set(stockItems.map(s => s.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  document.getElementById('stock-cat-list').innerHTML = cats.map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('');
+  const hasNone = stockItems.some(s => !s.category);
+  if (stockFilterCat !== null && stockFilterCat !== '' && !cats.includes(stockFilterCat)) stockFilterCat = null;
+  if (stockFilterCat === '' && !hasNone) stockFilterCat = null;
 
-    if (s.images && s.images.length) {
-      const imgsWrap = document.createElement('div');
-      imgsWrap.className = 'stock-images';
-      s.images.forEach(src => {
-        const img = document.createElement('img');
-        img.className = 'stock-img-thumb';
-        img.src = src;
-        img.addEventListener('click', () => openLightbox(src));
-        imgsWrap.appendChild(img);
-      });
-      card.appendChild(imgsWrap);
-    }
+  // 分頁按鈕、分類篩選
+  document.querySelectorAll('.stock-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === stockView));
+  chipsEl.innerHTML = '';
+  const mkChip = (label, val) => {
+    const c = document.createElement('button');
+    c.type = 'button';
+    c.className = 'stock-chip' + (stockFilterCat === val ? ' active' : '');
+    c.textContent = label;
+    c.addEventListener('click', () => { stockFilterCat = val; renderStock(); });
+    chipsEl.appendChild(c);
+  };
+  if (cats.length || hasNone) {
+    mkChip('全部分類', null);
+    cats.forEach(c => mkChip(c, c));
+    if (hasNone && cats.length) mkChip('未分類', '');
+  }
 
-    if (s.text) {
-      const textEl = document.createElement('div');
-      textEl.className = 'stock-text';
-      textEl.textContent = s.text;
-      card.appendChild(textEl);
-    }
+  const items = stockItems.filter(s => stockFilterCat === null || (s.category || '') === stockFilterCat);
+  emptyEl2.style.display = items.length === 0 ? 'block' : 'none';
+  emptyEl2.textContent = stockItems.length === 0 ? '目前沒有缺貨項目' : '這個分類沒有缺貨項目';
 
-    const meta = document.createElement('div');
-    meta.className = 'stock-meta';
-    if (s.vendor) {
-      const t = document.createElement('span');
-      t.className = 'stock-tag vendor';
-      t.textContent = '廠商 · ' + s.vendor;
-      meta.appendChild(t);
-    }
-    if (s.remindAt) {
-      const t = document.createElement('span');
-      t.className = 'stock-tag remind';
-      t.textContent = '提醒 · ' + s.remindAt;
-      meta.appendChild(t);
-    }
-    if (meta.childNodes.length) card.appendChild(meta);
-
-    const bottom = document.createElement('div');
-    bottom.className = 'stock-bottom';
-    const dateLabel = document.createElement('span');
-    dateLabel.style.fontSize = '11px';
-    dateLabel.style.color = 'var(--label2)';
-    const d = new Date(s.createdAt);
-    dateLabel.textContent = `${d.getMonth()+1}/${d.getDate()} 新增`;
-    bottom.appendChild(dateLabel);
-    const delBtn = document.createElement('button');
-    delBtn.className = 'stock-delete-btn';
-    delBtn.innerHTML = trashSvg();
-    delBtn.title = '刪除（叫完貨後可刪除）';
-    delBtn.addEventListener('click', () => deleteStockItem(s.id));
-    bottom.appendChild(delBtn);
-    card.appendChild(bottom);
-
-    listEl.appendChild(card);
+  if (stockView === 'flat') {
+    items.forEach(s => listEl.appendChild(makeStockCard(s)));
+    return;
+  }
+  const keyOf = s => stockView === 'cat' ? (s.category || '') : (s.vendor || '');
+  const emptyName = stockView === 'cat' ? '未分類' : '未指定廠商';
+  const groups = new Map();
+  items.forEach(s => { const k = keyOf(s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); });
+  const keys = [...groups.keys()].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, 'zh-Hant')));
+  keys.forEach(k => {
+    const arr = groups.get(k);
+    const head = document.createElement('div');
+    head.className = 'stock-group-head';
+    const name = document.createElement('span');
+    name.className = 'stock-group-name';
+    name.textContent = `${k || emptyName}（${arr.length}）`;
+    head.appendChild(name);
+    const cp = document.createElement('button');
+    cp.type = 'button';
+    cp.className = 'stock-copy-btn';
+    cp.textContent = '複製叫貨單';
+    cp.addEventListener('click', () => copyText(buildOrderText(k || emptyName, arr), cp));
+    head.appendChild(cp);
+    listEl.appendChild(head);
+    arr.forEach(s => listEl.appendChild(makeStockCard(s)));
   });
 }
+document.querySelectorAll('.stock-view-btn').forEach(b => b.addEventListener('click', () => {
+  stockView = b.dataset.view;
+  try { localStorage.setItem('stock-view', stockView); } catch (e) {}
+  renderStock();
+}));
 
 document.getElementById('stock-add-btn').addEventListener('click', addStockItem);
 document.getElementById('stock-new-text').addEventListener('input', (e) => autoResizeTextarea(e.target));
