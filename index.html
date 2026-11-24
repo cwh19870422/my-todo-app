@@ -129,7 +129,11 @@
   .stock-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
   .vendor-picks { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 10px; }
   .vendor-picks:empty { display: none; }
-  .vendor-pick { border: none; background: var(--fill); color: var(--label2); font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 13px; cursor: pointer; font-family: inherit; }
+  .vendor-pick { display: inline-flex; align-items: center; background: var(--fill); color: var(--label2); font-size: 12px; font-weight: 600; border-radius: 13px; overflow: hidden; }
+  .vendor-pick button { border: none; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+  .vendor-pick .vp-label { padding: 4px 4px 4px 11px; }
+  .vendor-pick .vp-del { padding: 4px 9px 4px 3px; font-size: 10px; opacity: 0.55; }
+  .vendor-pick .vp-del:hover { opacity: 1; color: var(--red); }
   .vendor-pick.on { background: rgba(0,122,255,0.14); color: var(--blue); }
   .stock-actions { display: flex; gap: 14px; align-items: center; }
   .stock-edit-btn { background: none; border: none; color: #C7C7CC; cursor: pointer; display: flex; padding: 0; }
@@ -751,10 +755,17 @@ function applyRemote(kind, list) {
   const first = !st.loaded;
   st.loaded = true;
   st.last = new Map(list.map(d => [d.id, stable(d)]));
+  let metaDoc = null;
+  if (kind === 'stock') { metaDoc = list.find(d => d.id === '_vendors') || null; list = list.filter(d => d.id !== '_vendors'); }
   const skip = st.dirty || (kind === 'todos' && (typeof dragEl !== 'undefined' && dragEl || editingId)) || (kind === 'stock' && stockEditingId);
   if (!skip) {
     const arr = list.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
-    if (kind === 'todos') { todos = arr; render(); } else { stockItems = arr; renderStock(); }
+    if (kind === 'todos') { todos = arr; render(); }
+    else {
+      stockItems = arr;
+      if (metaDoc && Array.isArray(metaDoc.list)) { vendorBook = metaDoc.list.slice(); metaSeen = true; }
+      renderStock();
+    }
   }
   if (first && cloud.todos.loaded && cloud.stock.loaded) maybeMigrate();
 }
@@ -1392,7 +1403,8 @@ function getBackupData() {
     collapsedGroups: localStorage.getItem('todo-collapsed-groups'),
     categoryOrder: localStorage.getItem('todo-category-order'),
     categoryOrderCustomized: localStorage.getItem('todo-category-order-customized'),
-    stockList: JSON.stringify(stockItems)
+    stockList: JSON.stringify(stockItems),
+    vendorBook: vendorBook
   };
 }
 function exportBackup() {
@@ -1420,6 +1432,8 @@ function importBackupFile(file) {
       const sl = typeof data.stockList === 'string' ? okList(data.stockList) : null;
       if (tl) todos = tl;
       if (sl) stockItems = sl;
+      if (Array.isArray(data.vendorBook)) vendorBook = data.vendorBook.filter(x => typeof x === 'string');
+      rememberVendors(stockItems.flatMap(x => vendorsOf(x)));
       if (typeof data.collapsedGroups === 'string') localStorage.setItem('todo-collapsed-groups', data.collapsedGroups);
       if (typeof data.categoryOrder === 'string') localStorage.setItem('todo-category-order', data.categoryOrder);
       if (typeof data.categoryOrderCustomized === 'string') localStorage.setItem('todo-category-order-customized', data.categoryOrderCustomized);
@@ -1460,7 +1474,11 @@ let stockItems = [];
 let stockNewImages = [];
 
 function loadStock() { renderStock(); }
-function saveStock() { pushCloud('stock', () => stockItems); }
+let vendorBook = [];
+let metaSeen = false;
+function seedBook() { if (!metaSeen) { rememberVendors(stockItems.flatMap(x => vendorsOf(x))); metaSeen = true; } }
+function saveStock() { seedBook(); pushCloud('stock', () => [...stockItems, { id: '_vendors', list: vendorBook.slice() }]); }
+function rememberVendors(list) { let ch = false; list.forEach(v => { if (!vendorBook.includes(v)) { vendorBook.push(v); ch = true; } }); return ch; }
 
 function renderStockNewImages() {
   const zone = document.getElementById('stock-new-image-zone');
@@ -1492,22 +1510,35 @@ wireImageDropZone(document.getElementById('stock-new-image-zone'), (dataUrl) => 
 function renderVendorPicks(box, input) {
   const count = new Map();
   stockItems.forEach(s => vendorsOf(s).forEach(v => count.set(v, (count.get(v) || 0) + 1)));
-  const all = [...count.keys()].sort((a, b) => count.get(b) - count.get(a) || a.localeCompare(b, 'zh-Hant'));
+  const src = metaSeen ? vendorBook : [...new Set([...vendorBook, ...stockItems.flatMap(x => vendorsOf(x))])];
+  const all = src.slice().sort((a, b) => (count.get(b) || 0) - (count.get(a) || 0) || a.localeCompare(b, 'zh-Hant'));
   const cur = parseVendors(input.value);
   box.innerHTML = '';
   all.forEach(v => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'vendor-pick' + (cur.includes(v) ? ' on' : '');
-    b.textContent = v;
-    b.addEventListener('click', () => {
+    const wrap = document.createElement('span');
+    wrap.className = 'vendor-pick' + (cur.includes(v) ? ' on' : '');
+    const lab = document.createElement('button');
+    lab.type = 'button'; lab.className = 'vp-label'; lab.textContent = v;
+    lab.addEventListener('click', () => {
       const list = parseVendors(input.value);
       const i = list.indexOf(v);
       if (i >= 0) list.splice(i, 1); else list.push(v);
       input.value = list.join('、');
       renderVendorPicks(box, input);
     });
-    box.appendChild(b);
+    const x = document.createElement('button');
+    x.type = 'button'; x.className = 'vp-del'; x.textContent = '✕'; x.title = '從快速選單刪除這個廠商';
+    x.addEventListener('click', (e) => {
+      e.stopPropagation();
+      seedBook();
+      vendorBook = vendorBook.filter(n => n !== v);
+      saveStock();
+      renderStock();
+      const eb = document.getElementById('stock-edit-vendor-picks'), ei = document.getElementById('stock-edit-vendor');
+      if (eb && ei) renderVendorPicks(eb, ei);
+    });
+    wrap.appendChild(lab); wrap.appendChild(x);
+    box.appendChild(wrap);
   });
 }
 function parseVendors(str) {
@@ -1525,6 +1556,7 @@ function addStockItem() {
   if (!text && !vendors.length && !stockNewImages.length) return;
   if (stockNewImages.reduce((n, x) => n + x.length, 0) > 850000) { alert('圖片總量太大（雲端單筆上限約 1MB），請減少幾張圖片'); return; }
 
+  rememberVendors(vendors);
   stockItems.unshift({
     id: uid(), text, vendors, category: catInput.value.trim() || null,
     remindAt: remindInput.value || null,
@@ -1556,6 +1588,7 @@ function saveStockEdit(id) {
   s.text = g('text').trim();
   s.category = g('cat').trim() || null;
   s.vendors = parseVendors(g('vendor'));
+  rememberVendors(s.vendors);
   delete s.vendor;
   s.remindAt = g('remind') || null;
   s.images = stockEditImages.slice();
