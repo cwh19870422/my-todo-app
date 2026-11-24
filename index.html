@@ -138,6 +138,7 @@
   .stock-actions { display: flex; gap: 14px; align-items: center; }
   .stock-edit-btn { background: none; border: none; color: #C7C7CC; cursor: pointer; display: flex; padding: 0; }
   .stock-edit-btn:hover { color: var(--blue); }
+  .stock-edit-btn { font-size: 15px; font-weight: 700; min-width: 18px; justify-content: center; }
   .stock-edit-btn svg { width: 18px; height: 18px; }
   .stock-edit-panel .field-row { padding-left: 0; padding-right: 0; }
   .stock-edit-actions { display: flex; gap: 8px; margin-top: 10px; }
@@ -1668,7 +1669,9 @@ function fallbackCopy(text, done) {
 function loadImg(src) {
   return new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
 }
-async function buildOrderImage(title, items) {
+async function buildOrderImage(title, items, opts) {
+  opts = opts || {};
+  const numbered = !opts.single;
   const W = 900, PAD = 36, FONT = '"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif';
   const measure = document.createElement('canvas').getContext('2d');
   const wrap = (txt, font, maxW) => {
@@ -1684,11 +1687,12 @@ async function buildOrderImage(title, items) {
     return out;
   };
   const rows = [];
-  let H = PAD + 60;
+  const headH = title ? 60 : 0;
+  let H = PAD + headH;
   for (let i = 0; i < items.length; i++) {
     const s = items[i];
-    const label = `${i + 1}. ${s.text || ''}${s.category ? '（' + s.category + '）' : ''}`;
-    const lines = s.text || s.category ? wrap(label, '600 30px ' + FONT, W - PAD * 2) : [`${i + 1}.`];
+    const label = `${numbered ? (i + 1) + '. ' : ''}${s.text || ''}${s.category ? '（' + s.category + '）' : ''}`;
+    const lines = s.text || s.category ? wrap(label, '600 30px ' + FONT, W - PAD * 2) : (numbered ? [`${i + 1}.`] : []);
     const imgs = (await Promise.all((s.images || []).map(loadImg))).filter(Boolean);
     const per = 3, gap = 14, sz = Math.floor((W - PAD * 2 - gap * (per - 1)) / per);
     const imgRows = Math.ceil(imgs.length / per);
@@ -1702,8 +1706,8 @@ async function buildOrderImage(title, items) {
   const c = cv.getContext('2d');
   c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
   c.fillStyle = '#000'; c.font = '700 38px ' + FONT; c.textBaseline = 'top';
-  c.fillText(`【${title}】缺貨叫貨`, PAD, PAD);
-  let y = PAD + 60;
+  if (title) c.fillText(`【${title}】缺貨叫貨`, PAD, PAD);
+  let y = PAD + headH;
   rows.forEach(r => {
     c.fillStyle = '#111'; c.font = '600 30px ' + FONT;
     r.lines.forEach(l => { c.fillText(l, PAD, y); y += 42; });
@@ -1725,26 +1729,26 @@ async function buildOrderImage(title, items) {
   });
   return new Promise(res => cv.toBlob(res, 'image/png'));
 }
-async function copyOrderImage(title, items, btn) {
-  const o = btn.textContent;
-  btn.textContent = '產生中…';
+async function copyOrderImage(title, items, btn, opts) {
+  const o = btn.innerHTML;
+  btn.textContent = btn.classList.contains('stock-copy-btn') ? '產生中…' : '…';
   try {
-    const blobP = buildOrderImage(title, items);
+    const blobP = buildOrderImage(title, items, opts);
     if (navigator.clipboard && window.ClipboardItem) {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobP })]);
-      btn.textContent = '已複製 ✓';
+      btn.textContent = btn.classList.contains('stock-copy-btn') ? '已複製 ✓' : '✓';
     } else throw new Error('no clipboard image');
   } catch (e) {
     try {
-      const blob = await buildOrderImage(title, items);
+      const blob = await buildOrderImage(title, items, opts);
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = `${title}-叫貨單.png`;
+      a.href = URL.createObjectURL(blob); a.download = `${title || '缺貨品項'}-叫貨單.png`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-      btn.textContent = '已下載圖片';
+      btn.textContent = btn.classList.contains('stock-copy-btn') ? '已下載圖片' : '↓';
     } catch (e2) { btn.textContent = '失敗'; }
   }
-  setTimeout(() => { btn.textContent = o; }, 1800);
+  setTimeout(() => { btn.innerHTML = o; }, 1800);
 }
 function buildOrderText(title, items) {
   const lines = items.map((s, i) => `${i + 1}. ${s.text || '（見圖片）'}${s.category ? '（' + s.category + '）' : ''}`);
@@ -1800,6 +1804,12 @@ function makeStockCard(s) {
   editBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
   editBtn.title = '編輯';
   editBtn.addEventListener('click', () => startStockEdit(s.id));
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'stock-edit-btn';
+  copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
+  copyBtn.title = '複製這個品項（含圖片）';
+  copyBtn.addEventListener('click', () => copyOrderImage('', [s], copyBtn, { single: true }));
+  actions.appendChild(copyBtn);
   actions.appendChild(editBtn);
   const delBtn = document.createElement('button');
   delBtn.className = 'stock-delete-btn';
