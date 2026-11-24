@@ -1632,6 +1632,87 @@ function fallbackCopy(text, done) {
   try { document.execCommand('copy'); done(); } catch (e) { alert('複製失敗，請手動複製'); }
   document.body.removeChild(ta);
 }
+function loadImg(src) {
+  return new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+}
+async function buildOrderImage(title, items) {
+  const W = 900, PAD = 36, FONT = '"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif';
+  const measure = document.createElement('canvas').getContext('2d');
+  const wrap = (txt, font, maxW) => {
+    measure.font = font;
+    const out = [];
+    String(txt).split('\n').forEach(par => {
+      let line = '';
+      for (const ch of par) {
+        if (measure.measureText(line + ch).width > maxW && line) { out.push(line); line = ch; } else line += ch;
+      }
+      out.push(line);
+    });
+    return out;
+  };
+  const rows = [];
+  let H = PAD + 60;
+  for (let i = 0; i < items.length; i++) {
+    const s = items[i];
+    const label = `${i + 1}. ${s.text || ''}${s.category ? '（' + s.category + '）' : ''}`;
+    const lines = s.text || s.category ? wrap(label, '600 30px ' + FONT, W - PAD * 2) : [`${i + 1}.`];
+    const imgs = (await Promise.all((s.images || []).map(loadImg))).filter(Boolean);
+    const per = 3, gap = 14, sz = Math.floor((W - PAD * 2 - gap * (per - 1)) / per);
+    const imgRows = Math.ceil(imgs.length / per);
+    const h = lines.length * 42 + (imgs.length ? 10 + imgRows * (sz + gap) : 0) + 30;
+    rows.push({ lines, imgs, sz, gap, per, h });
+    H += h;
+  }
+  H += PAD;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#000'; c.font = '700 38px ' + FONT; c.textBaseline = 'top';
+  c.fillText(`【${title}】缺貨叫貨`, PAD, PAD);
+  let y = PAD + 60;
+  rows.forEach(r => {
+    c.fillStyle = '#111'; c.font = '600 30px ' + FONT;
+    r.lines.forEach(l => { c.fillText(l, PAD, y); y += 42; });
+    if (r.imgs.length) {
+      y += 10;
+      r.imgs.forEach((im, k) => {
+        const col = k % r.per, rw = Math.floor(k / r.per);
+        const x = PAD + col * (r.sz + r.gap), yy = y + rw * (r.sz + r.gap);
+        const sc = Math.min(r.sz / im.width, r.sz / im.height);
+        const w = im.width * sc, h = im.height * sc;
+        c.fillStyle = '#f2f2f7'; c.fillRect(x, yy, r.sz, r.sz);
+        c.drawImage(im, x + (r.sz - w) / 2, yy + (r.sz - h) / 2, w, h);
+      });
+      y += Math.ceil(r.imgs.length / r.per) * (r.sz + r.gap);
+    }
+    y += 30;
+    c.strokeStyle = '#e5e5ea'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(PAD, y - 18); c.lineTo(W - PAD, y - 18); c.stroke();
+  });
+  return new Promise(res => cv.toBlob(res, 'image/png'));
+}
+async function copyOrderImage(title, items, btn) {
+  const o = btn.textContent;
+  btn.textContent = '產生中…';
+  try {
+    const blobP = buildOrderImage(title, items);
+    if (navigator.clipboard && window.ClipboardItem) {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobP })]);
+      btn.textContent = '已複製 ✓';
+    } else throw new Error('no clipboard image');
+  } catch (e) {
+    try {
+      const blob = await buildOrderImage(title, items);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = `${title}-叫貨單.png`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      btn.textContent = '已下載圖片';
+    } catch (e2) { btn.textContent = '失敗'; }
+  }
+  setTimeout(() => { btn.textContent = o; }, 1800);
+}
 function buildOrderText(title, items) {
   const lines = items.map((s, i) => `${i + 1}. ${s.text || '（見圖片）'}${s.category ? '（' + s.category + '）' : ''}`);
   return `【${title}】缺貨叫貨\n${lines.join('\n')}`;
@@ -1751,12 +1832,20 @@ function renderStock() {
     name.className = 'stock-group-name';
     name.textContent = `${k || emptyName}（${arr.length}）`;
     head.appendChild(name);
+    const btns = document.createElement('div');
+    btns.style.display = 'flex'; btns.style.gap = '6px';
+    const cpImg = document.createElement('button');
+    cpImg.type = 'button';
+    cpImg.className = 'stock-copy-btn';
+    cpImg.textContent = '複製叫貨單（含圖片）';
+    cpImg.addEventListener('click', () => copyOrderImage(k || emptyName, arr, cpImg));
     const cp = document.createElement('button');
     cp.type = 'button';
     cp.className = 'stock-copy-btn';
-    cp.textContent = '複製叫貨單';
+    cp.textContent = '只複製文字';
     cp.addEventListener('click', () => copyText(buildOrderText(k || emptyName, arr), cp));
-    head.appendChild(cp);
+    btns.appendChild(cpImg); btns.appendChild(cp);
+    head.appendChild(btns);
     listEl.appendChild(head);
     arr.forEach(s => listEl.appendChild(makeStockCard(s)));
   });
